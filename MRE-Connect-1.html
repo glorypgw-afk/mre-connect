@@ -1,0 +1,994 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>MRE Connect</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Cairo:wght@400;600;700;800&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js"></script>
+<style>
+/* Concept: premium dark + gold, one scrolling page per menu entry, a draggable 3D globe as the hero, gold buttons that breathe slowly like LEDs */
+:root{
+  --bg:#070b17; --bg2:#0d1428; --surf:#121b33; --surf2:#1a274b; --glass:rgba(18,27,51,.72);
+  --gold:#d4af37; --gold2:#f3d775; --goldDim:rgba(212,175,55,.18); --red:#c41e3a; --green:#006233; --green2:#0f9d58; --blue:#1f5fbf;
+  --ink:#eef2ff; --dim:#9aa3c2; --line:rgba(212,175,55,.2); --line2:rgba(212,175,55,.42); --danger:#ff7a7a;
+  --serif:'Cormorant Garamond',Georgia,'Times New Roman',serif;
+  --sans:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg)}
+body{color:var(--ink);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:0 110px;min-height:100vh;
+  background:radial-gradient(ellipse at 20% -10%,rgba(212,175,55,.13),transparent 50%),radial-gradient(ellipse at 90% 30%,rgba(196,30,58,.12),transparent 45%),var(--bg)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:30}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
+  background-image:radial-gradient(circle at 1px 1px,rgba(212,175,55,.1) 1px,transparent 0),linear-gradient(45deg,rgba(212,175,55,.035) 25%,transparent 0,transparent 75%,rgba(212,175,55,.035) 0),linear-gradient(-45deg,rgba(212,175,55,.035) 25%,transparent 0,transparent 75%,rgba(212,175,55,.035) 0);
+  background-size:28px 28px,56px 56px,56px 56px}
+h1,h2,h3,.serif{font-family:var(--serif);text-wrap:balance}
+button{font-family:inherit;cursor:pointer}
+.app{position:relative;z-index:1;max-width:980px;margin:0 auto}
+/* barre du haut */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:25;display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:10px;background:linear-gradient(var(--bg) 70%,transparent)}
+.logo{display:flex;align-items:center;gap:10px;min-width:0;border:0;background:none;color:var(--ink);text-align:start}
+.logo i{flex:none;width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,var(--red),var(--green));display:grid;place-items:center;font:800 11px var(--sans);letter-spacing:.12em;font-style:normal}
+.logo b{font:700 11px var(--sans);letter-spacing:.2em;color:var(--gold2);line-height:1.3}
+.logo b span{display:block;color:var(--dim);font-weight:500;letter-spacing:.08em;font-size:10px}
+.sel{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:.5rem .8rem;font:600 .8rem var(--sans)}
+.sel option{background:var(--surf)}
+.back{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--gold2);border-radius:999px;padding:.45rem .9rem;font:700 .8rem var(--sans);margin-bottom:14px}
+/* boutons : lueur dorée qui respire */
+.cta{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:.95rem 1.6rem;background:var(--gold);color:#0b0f1d;font:800 .95rem var(--sans);letter-spacing:.02em;text-decoration:none;animation:breathe 3.4s ease-in-out infinite alternate}
+.cta:active{transform:scale(.98)}
+.ghost{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:999px;padding:.9rem 1.4rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.18);color:var(--ink);font:700 .92rem var(--sans);text-decoration:none;animation:breatheSoft 4.2s ease-in-out infinite alternate}
+.danger{border-color:rgba(255,122,122,.5);color:var(--danger)}
+@keyframes breathe{from{box-shadow:0 0 6px rgba(212,175,55,.18),0 6px 18px rgba(212,175,55,.12);filter:brightness(.88)}to{box-shadow:0 0 22px rgba(243,215,117,.65),0 10px 34px rgba(212,175,55,.42);filter:brightness(1.08)}}
+@keyframes breatheSoft{from{box-shadow:0 0 0 rgba(212,175,55,0);border-color:rgba(255,255,255,.14)}to{box-shadow:0 0 16px rgba(212,175,55,.28);border-color:var(--line2)}}
+@keyframes led{0%,100%{opacity:.12;transform:scale(.7)}50%{opacity:1;transform:scale(1.25)}}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+#view>*{animation:rise .35s ease both}
+/* accueil */
+.hero{position:relative;padding-block:18px 8px;display:flex;flex-direction:column;gap:18px}
+.leds{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.leds s{position:absolute;width:4px;height:4px;border-radius:50%;background:var(--gold2);box-shadow:0 0 8px var(--gold);animation:led 4s ease-in-out infinite}
+.pill{align-self:flex-start;display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:999px;padding:.4rem .9rem;font:700 .68rem var(--sans);letter-spacing:.18em;color:var(--gold2)}
+.pill s{width:8px;height:8px;border-radius:50%;background:#34d399;box-shadow:0 0 10px #34d399;animation:led 2.6s ease-in-out infinite}
+.h1{overflow-wrap:anywhere;font:700 clamp(2.1rem,9.5vw,4.2rem)/1 var(--serif);letter-spacing:-.02em}
+.h1 em{display:block;font-style:normal;background:linear-gradient(90deg,var(--gold),var(--gold2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{color:var(--dim);font-size:1.08rem;max-width:36ch}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.vals{display:flex;gap:8px;flex-wrap:wrap}
+.vals span{border:1px solid var(--line);border-radius:999px;padding:.28rem .8rem;font:700 .62rem var(--sans);letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
+.glass{background:var(--glass);border:1px solid var(--line);border-radius:26px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 0 0 1px rgba(212,175,55,.08),0 20px 60px rgba(0,0,0,.5)}
+.globeCard{padding:18px;display:flex;flex-direction:column;gap:14px;margin-top:6px}
+.gtop{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.flag{display:flex;align-items:center;gap:10px;font:700 .72rem var(--sans);letter-spacing:.14em}
+.flag i{width:46px;height:32px;border-radius:7px;background:var(--red);display:grid;place-items:center;color:var(--green2);font-style:normal;font-size:20px;border:1px solid rgba(255,255,255,.12)}
+.flag small{display:block;color:var(--dim);font-weight:500;letter-spacing:.05em;font-size:.7rem}
+.live{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(52,211,153,.35);background:rgba(52,211,153,.1);color:#6ee7b7;border-radius:999px;padding:.25rem .7rem;font:800 .62rem var(--sans);letter-spacing:.1em}
+.live s{width:6px;height:6px;border-radius:50%;background:#34d399;animation:led 2s infinite}
+#globeHost{position:relative;width:100%;aspect-ratio:1/1;max-height:520px;border-radius:22px;background:radial-gradient(circle at 50% 45%,#13204a 0%,#0a1026 62%,#070b17 100%);border:1px solid rgba(255,255,255,.08);overflow:hidden}
+#globe{position:absolute;inset:0;width:100%;height:100%;touch-action:pan-y;cursor:grab}
+#globe:active{cursor:grabbing}
+.ghint{text-align:center;font-size:.75rem;color:var(--dim)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);border-radius:16px;padding:12px 6px;text-align:center}
+.stat b{display:block;font:700 1.7rem/1 var(--serif);color:var(--gold2)}
+.stat span{font:700 .6rem var(--sans);letter-spacing:.12em;color:var(--dim);text-transform:uppercase}
+.band{text-align:center;padding:26px 8px;display:flex;flex-direction:column;gap:6px}
+.band h2{font:700 clamp(1.7rem,7vw,2.6rem)/1.05 var(--serif);color:var(--gold2)}
+.band p{color:var(--dim)}
+.sec{display:flex;flex-direction:column;gap:14px;margin-top:30px}
+.sh{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.sh h2{font:700 clamp(1.7rem,7vw,2.4rem)/1 var(--serif)}
+.sh p{color:var(--dim);font-size:.85rem}
+.more{background:none;border:0;color:var(--gold2);font:700 .85rem var(--sans)}
+.poles{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media (min-width:640px){.poles{grid-template-columns:repeat(4,1fr)}}
+.pole{display:flex;flex-direction:column;gap:10px;text-align:start;padding:14px;border-radius:18px;background:var(--surf);border:1px solid var(--line);color:var(--ink);min-width:0;transition:border-color .25s,box-shadow .25s,transform .1s}
+.pole:hover{border-color:var(--line2);box-shadow:0 0 22px rgba(212,175,55,.18)}
+.pole:active{transform:scale(.98)}
+.pole .ico{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:var(--gold);background:var(--goldDim);border:1px solid var(--line);animation:breatheSoft 4s ease-in-out infinite alternate}
+.pole b{font:700 .82rem/1.25 var(--sans);overflow-wrap:anywhere}
+.pole span{margin-top:auto;font-size:.7rem;color:var(--dim)}
+.ico svg,.nav svg{display:block}
+.promo{position:relative;overflow:hidden;padding:24px 20px;display:flex;flex-direction:column;gap:12px}
+.promo h2{font:700 clamp(1.8rem,8vw,2.8rem)/.98 var(--serif)}
+.promo h2 em{font-style:normal;color:var(--gold2)}
+.promo p{color:var(--dim);max-width:52ch}
+/* annuaire */
+.tools{display:grid;grid-template-columns:1fr;gap:10px}
+@media (min-width:640px){.tools{grid-template-columns:1.6fr 1fr 1fr 1fr}}
+input,select,textarea{font:inherit;color:var(--ink);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:.8rem 1rem;width:100%;min-width:0}
+input::placeholder,textarea::placeholder{color:rgba(238,242,255,.32)}
+select option{background:var(--surf)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--line2);background:rgba(255,255,255,.09)}
+button:focus-visible,a:focus-visible{outline:2px solid var(--gold2);outline-offset:2px}
+textarea{min-height:84px;resize:vertical}
+.rail{display:flex;gap:8px;overflow-x:auto;padding-block:6px;scrollbar-width:none}
+.rail::-webkit-scrollbar{display:none}
+.chip{flex:none;white-space:nowrap;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--ink);border-radius:999px;padding:.45rem .9rem;font:600 .8rem var(--sans)}
+.chip b{color:var(--gold2);margin-left:.4rem}
+.chip[aria-pressed="true"]{background:var(--gold);color:#0b0f1d;border-color:var(--gold)}
+.chip[aria-pressed="true"] b{color:inherit}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.mem{display:flex;flex-direction:column;gap:9px;text-align:start;padding:16px;border-radius:20px;background:var(--surf);border:1px solid var(--line);color:var(--ink);min-width:0;transition:border-color .25s,box-shadow .25s}
+.mem:hover{border-color:var(--line2);box-shadow:0 0 24px rgba(212,175,55,.16)}
+.mt{display:flex;gap:12px;align-items:center;min-width:0}
+.av{flex:none;width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#2a3a6a,var(--surf2));border:1px solid var(--line);display:grid;place-items:center;font:700 1.05rem var(--serif);color:var(--gold2)}
+.av.big{width:74px;height:74px;font-size:1.7rem}
+.nm{font-weight:700;overflow-wrap:anywhere;line-height:1.25}
+.loc{font-size:.78rem;color:var(--dim)}
+.tag{align-self:flex-start;border:1px solid rgba(212,175,55,.3);background:rgba(212,175,55,.12);color:var(--gold2);border-radius:999px;padding:.2rem .65rem;font:700 .68rem var(--sans)}
+.sk{font-size:.83rem;color:rgba(238,242,255,.72);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.open{margin-top:auto;font:700 .75rem var(--sans);color:var(--gold2)}
+.empty{border:1px dashed rgba(255,255,255,.18);border-radius:22px;padding:34px 20px;text-align:center;color:var(--dim);grid-column:1/-1}
+.empty strong{display:block;font:700 1.5rem var(--serif);color:var(--ink);margin-bottom:6px}
+.empty .cta{margin-top:14px}
+/* fiche */
+.fiche{padding:22px 18px;display:flex;flex-direction:column;gap:16px}
+.fh{display:flex;gap:16px;align-items:center}
+.fh h2{font:700 1.9rem/1.05 var(--serif);overflow-wrap:anywhere}
+.blk{border-top:1px solid rgba(255,255,255,.08);padding-top:12px}
+.blk small{display:block;font:700 .64rem var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:4px}
+.blk p{overflow-wrap:anywhere;white-space:pre-wrap}
+.ct{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ct span{min-width:0;overflow-wrap:anywhere;user-select:all}
+.mini{border:1px solid var(--line);background:transparent;color:var(--gold2);border-radius:10px;padding:.25rem .65rem;font:700 .72rem var(--sans)}
+/* sondage */
+.opts{display:flex;flex-direction:column;gap:10px}
+.opt{position:relative;overflow:hidden;display:flex;align-items:center;gap:14px;text-align:start;border:0;border-radius:18px;padding:14px 16px;color:#fff;font:700 1rem/1.25 var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+.opt .l{flex:none;width:40px;height:40px;border-radius:50%;background:#fff;display:grid;place-items:center;font:800 1.2rem var(--sans)}
+.opt .t{position:relative;flex:1;min-width:0}
+.opt .p{position:relative;font:800 .95rem var(--sans);flex:none}
+.opt .bar{position:absolute;inset-block:0;inset-inline-start:0;background:rgba(255,255,255,.2);transition:width .7s ease}
+.opt[aria-pressed="true"]{outline:3px solid var(--gold2);outline-offset:2px}
+.oA{background:linear-gradient(180deg,#d8243f,#a5162d)}.oA .l{color:#c41e3a}
+.oB{background:linear-gradient(180deg,#14a35f,#0a6b3d)}.oB .l{color:#0a6b3d}
+.oC{background:linear-gradient(180deg,#2c74d9,#1a4b9c)}.oC .l{color:#1a4b9c}
+.oD{background:linear-gradient(180deg,#e8bd3c,#b98f1c);color:#1a1405}.oD .l{color:#9a7510}
+/* énergies */
+.etiles{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.etile{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);border-radius:16px;padding:14px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;font:700 .85rem var(--sans)}
+.etile .ico{width:40px;height:40px;border-radius:50%;background:var(--goldDim);color:var(--gold);display:grid;place-items:center;animation:breatheSoft 4s ease-in-out infinite alternate}
+.fact{border:1px solid rgba(52,211,153,.3);background:rgba(52,211,153,.08);border-radius:16px;padding:12px 14px;font-size:.88rem}
+/* formulaire */
+.panel{padding:20px 18px;display:flex;flex-direction:column;gap:14px}
+.panel h2{font:700 1.9rem/1 var(--serif)}
+.f{display:flex;flex-direction:column;gap:6px}
+.f label{font:700 .66rem var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:520px){.two{grid-template-columns:1fr}}
+.cons{display:flex;gap:10px;align-items:flex-start;font-size:.82rem;color:var(--dim)}
+.cons input{width:20px;height:20px;flex:none;margin-top:2px;accent-color:var(--gold)}
+.note{border:1px solid var(--line);background:rgba(212,175,55,.09);border-radius:14px;padding:.7rem .9rem;font-size:.8rem;color:var(--gold2);margin-bottom:14px}
+footer{margin-top:44px;border-top:1px solid var(--line);padding-top:22px;display:flex;flex-direction:column;gap:10px}
+footer b{font:700 1.3rem var(--serif);color:var(--gold2)}
+footer p{font-size:.78rem;color:var(--dim)}
+/* navigation basse */
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:25;display:flex;justify-content:center;padding:8px max(10px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px));background:linear-gradient(transparent,var(--bg) 35%)}
+.nav>div{width:100%;max-width:560px;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:6px;border-radius:22px;background:rgba(13,20,40,.92);border:1px solid var(--line);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.nav button{display:flex;flex-direction:column;align-items:center;gap:3px;border:0;background:none;color:var(--dim);font:700 .62rem var(--sans);padding:7px 2px;border-radius:16px;min-width:0}
+.nav button span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav button[aria-current="page"]{color:var(--gold2);background:var(--goldDim);box-shadow:0 0 14px rgba(212,175,55,.25)}
+.toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);opacity:0;background:var(--gold);color:#0b0f1d;padding:.7rem 1.1rem;border-radius:999px;font:800 .85rem var(--sans);transition:.25s;max-width:90vw;text-align:center;z-index:40;pointer-events:none}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* arabe : lecture de droite à gauche */
+:root[lang="ar"]{--sans:'Cairo',system-ui,sans-serif;--serif:'Cairo',system-ui,sans-serif}
+[lang="ar"] *{letter-spacing:0!important}
+[lang="ar"] .h1{line-height:1.25}
+[dir="rtl"] .cta svg,[dir="rtl"] .back svg{transform:scaleX(-1)}
+.arr{font-style:normal;display:inline-block}
+[dir="rtl"] .arr{transform:scaleX(-1)}
+input[type=tel],input[type=email]{direction:ltr}
+[dir="rtl"] input[type=tel],[dir="rtl"] input[type=email]{text-align:right}
+/* business + café */
+.ib{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:var(--gold);background:var(--goldDim);border:1px solid var(--line);animation:breatheSoft 4s ease-in-out infinite alternate}
+.bzr{display:flex;gap:14px;align-items:flex-start;padding:16px 18px}
+.bzr p{padding-top:2px}
+.bzg{display:grid;gap:12px}
+@media (min-width:640px){.bzg{grid-template-columns:1fr 1fr}}
+.bz{padding:20px 18px;display:flex;flex-direction:column;gap:12px}
+.bz h3{font:700 1.6rem/1.05 var(--serif)}
+.bz p{color:var(--dim)}
+.coffee{padding:22px 18px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+.disc{font-size:.78rem;color:var(--dim);border:1px dashed rgba(255,255,255,.18);border-radius:14px;padding:.8rem 1rem}
+[hidden]{display:none!important}
+</style>
+
+<div class="app">
+  <div class="top">
+    <button class="logo" id="logo" aria-label="MRE Connect"><i>MRE</i><b>MRE CONNECT<span id="logoSub"></span></b></button>
+    <select class="sel" id="lang" aria-label="Language"></select>
+  </div>
+  <main id="view"></main>
+  <section id="formView" hidden>
+    <button class="back" id="formBack"></button>
+    <div id="formNote" class="note" hidden></div>
+    <form class="glass panel" id="form" autocomplete="on">
+      <h2 id="formTitle"></h2>
+      <div class="two">
+        <div class="f"><label for="first" id="lFirst"></label><input id="first" autocomplete="given-name" placeholder="Ahmed"></div>
+        <div class="f"><label for="last" id="lLast"></label><input id="last" autocomplete="family-name" placeholder="Benali"></div>
+      </div>
+      <div class="f"><label for="phone" id="lPhone"></label><input id="phone" type="tel" autocomplete="tel" placeholder="+33 6 12 34 56 78"></div>
+      <div class="f"><label for="email" id="lEmail"></label><input id="email" type="email" autocomplete="email" placeholder="ahmed@exemple.com"></div>
+      <div class="two">
+        <div class="f"><label for="country" id="lCountry"></label><select id="country"></select></div>
+        <div class="f"><label for="city" id="lCity"></label><input id="city" autocomplete="address-level2" placeholder="Lille"></div>
+      </div>
+      <div class="f"><label for="domain" id="lDomain"></label><select id="domain"></select></div>
+      <div class="f"><label for="role" id="lRole"></label><select id="role"></select></div>
+      <div class="f"><label for="biz" id="lBiz"></label><textarea id="biz" maxlength="300"></textarea></div>
+      <div class="f"><label for="seek" id="lSeek"></label><textarea id="seek" maxlength="300"></textarea></div>
+      <div class="f"><label for="skills" id="lSkills"></label><textarea id="skills" maxlength="400"></textarea></div>
+      <label class="cons"><input type="checkbox" id="consent"><span id="lConsent"></span></label>
+      <div class="row"><button class="cta" type="submit" id="save"></button><button class="ghost danger" type="button" id="del" hidden></button></div>
+    </form>
+  </section>
+</div>
+
+<nav class="nav"><div id="nav"></div></nav>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ===== CONFIGURATION : à remplir ===== */
+var SUPABASE_URL="https://bvajvtvnpziuophjethb.supabase.co";      /* ex. https://xxxx.supabase.co */
+var SUPABASE_KEY="sb_publishable_D6LRWPVjvOPlLnuUSsmkhA_YV5Q2C3s";      /* clé "anon public" (Project Settings > API) */
+var PAYPAL_URL="https://www.paypal.com/qrcodes/p2pqrc/AVXYKPYLVTYJJ";        /* ex. https://paypal.me/tonpseudo */
+/* ======================================= */
+
+/* ================= données de base ================= */
+var PK=["agri","industrie","commerce","tech","btp","finance","tourisme","logistique","startup","services","associatif","sante","education","juridique","artisanat","beaute","restauration","auto","energie","autre"];
+var CC=["FR","BE","NL","ES","PT","IT","DE","CH","LU","GB","CA","US","AE","MA","OTHER"];
+var CCLL={FR:[46.6,2.3],BE:[50.6,4.6],NL:[52.2,5.3],ES:[40.2,-3.7],PT:[39.6,-8],IT:[42.8,12.5],DE:[51,10.4],CH:[46.8,8.2],LU:[49.8,6.1],GB:[54,-2],CA:[45.5,-73.6],US:[40.7,-74],AE:[25.2,55.3],MA:[33.6,-7.6]};
+
+/* ================= traductions ================= */
+var L={};
+L.fr={name:"Français",flag:"🇫🇷",
+nHome:"Accueil",nDir:"Annuaire",nPoles:"Pôles",nPoll:"Sondage",nMe:"Mon profil",
+pill:"COLLECTIF MRE INTERNATIONAL",h1a:"TU ES MRE ?",h1b:"ALORS ÉCOUTE ÇA.",hsub:"Ensemble, nous allons plus loin. Un réseau solide pour des opportunités réelles.",
+join:"Rejoignez le collectif",explore:"Explorer l'annuaire",
+vals:["Réseautage","Confiance","Opportunités","Entraide","Innovation","Investissement"],
+tag:"Une diaspora unie, un Maroc qui avance !",tog:"Ensemble, nous allons plus loin.",net:"Un réseau solide pour des opportunités réelles.",
+stM:"Membres",stC:"Pays",stP:"Pôles",live:"EN DIRECT",flagSub:"Diaspora connectée",drag:"Faites tourner le globe avec le doigt",
+legend:"Chaque lumière relie le Maroc à sa diaspora. Les lumières dorées sont les pays où des membres sont déjà inscrits.",
+polesT:"Pôles d'excellence",polesS:"Des Marocains qui entreprennent partout dans le monde",all:"Tout voir",nMem:"{n} membre(s)",
+dirT:"Annuaire du collectif",dirS:"Même origine, des ambitions sans frontières.",search:"Nom, ville, compétence…",allD:"Tous les pôles",allC:"Tous les pays",cnt:"{n} profil(s)",
+emptyT:"L'annuaire attend son premier membre",emptyD:"Créez votre profil pour apparaître ici et être trouvé par les autres MRE.",none:"Aucun profil ne correspond à votre recherche.",
+pollT:"MRE : et si on passait à l'action ?",pollS:"Nous sommes des millions de Marocains à travers le monde, avec des compétences, des expériences, des idées et des réseaux différents. Qu'est-ce qui pourrait réellement nous rassembler ?",
+pollQ:"Si le Collectif MRE lançait un grand projet, lequel vous intéresserait le plus ?",pA:"Investir ensemble au Maroc",pB:"Créer un réseau business entre MRE",pC:"Trouver des opportunités d'affaires et d'export",pD:"Entraide, contacts et bons plans entre MRE",
+vote:"Votez en touchant une réponse",voted:"Merci, votre voix est comptée. Touchez une autre réponse pour la changer.",votes:"{n} vote(s)",
+askA:"Quelles sont vos compétences ?",askB:"Quel business faites-vous ?",askS:"Partagez votre expérience, vos projets et vos domaines d'expertise !",askCta:"Je crée mon profil",
+enT:"Énergies renouvelables au Maroc",enS:"Solaire, éolien, stockage, installation, maintenance : la prochaine révolution est marocaine.",enSolar:"Solaire",enWind:"Éolien",enStore:"Stockage",enInst:"Installation",enInv:"Investissement",
+enFact:"Objectif national : 52 % de la capacité électrique installée d'origine renouvelable d'ici 2030. Le complexe solaire Noor Ouarzazate dépasse 500 MW.",enQ:"Quelles opportunités voyez-vous ?",enMem:"Professionnels de l'énergie dans le collectif",
+back:"Retour",bizL:"Son activité",seekL:"Ce qu'il ou elle recherche",skillsL:"Compétences",contactL:"Contact",noMem:"Aucun membre dans ce pôle pour l'instant.",beFirst:"Soyez le premier de ce pôle",
+newT:"Rejoindre le collectif",editT:"Modifier mon profil",fFirst:"Prénom",fLast:"Nom",fPhone:"Téléphone (avec indicatif)",fEmail:"Email (facultatif)",fCountry:"Pays de résidence",fCity:"Ville",fDomain:"Pôle d'activité",
+fBiz:"Quel business faites-vous ?",fSeek:"Que recherchez-vous ? (partenaires, clients, conseils…)",fSkills:"Vos compétences et qualifications",
+bizPh:"Ex : import de produits agroalimentaires Maroc – Belgique",seekPh:"Ex : un transporteur frigorifique, des partenaires à Lyon",skPh:"Ex : infirmier diplômé, 5 ans d'expérience, arabe et français",
+consent:"J'accepte que mon nom, mon téléphone et mes informations professionnelles soient visibles par les membres du collectif.",
+save:"Valider mon profil",upd:"Mettre à jour",del:"Supprimer mon profil",delSure:"Touchez encore pour confirmer",saved:"Bienvenue dans le collectif !",deleted:"Profil supprimé",
+req:"Prénom, nom, téléphone et ville sont obligatoires.",consentReq:"Cochez la case d'accord pour publier votre profil.",copy:"Copier",copied:"Copié",wa:"WhatsApp",you:"Vous",
+local:"Mode local : vos données restent sur cet appareil. Ouvrez l'application depuis son lien partagé et connectez-vous pour rejoindre l'annuaire commun.",ro:"Votre accès est en lecture seule. Demandez un accès Contributeur pour vous inscrire.",
+err:"Une erreur est survenue. Réessayez.",rm:"Retirer ce profil",other:"Autre",
+d:["Agriculture & Agroalimentaire","Industrie & Production","Commerce & Distribution","Tech & Digital","BTP & Immobilier","Finance & Investissement","Tourisme & Hôtellerie","Import/Export & Logistique","Innovation & Startup","Services & Conseil","Associatif & Social","Santé","Éducation & Formation","Juridique","Artisanat","Beauté & Coiffure","Restauration","Automobile","Énergies & Solaire","Autre"]};
+L.en={name:"English",flag:"🇬🇧",
+nHome:"Home",nDir:"Directory",nPoles:"Hubs",nPoll:"Poll",nMe:"My profile",
+pill:"MRE INTERNATIONAL COLLECTIVE",h1a:"ARE YOU MRE?",h1b:"THEN LISTEN UP.",hsub:"Together, we go further. A solid network for real opportunities.",
+join:"Join the collective",explore:"Explore the directory",
+vals:["Networking","Trust","Opportunities","Mutual aid","Innovation","Investment"],
+tag:"A united diaspora, a Morocco moving forward!",tog:"Together, we go further.",net:"A solid network for real opportunities.",
+stM:"Members",stC:"Countries",stP:"Hubs",live:"LIVE",flagSub:"Connected diaspora",drag:"Spin the globe with your finger",
+legend:"Each light links Morocco to its diaspora. Gold lights are countries where members have already registered.",
+polesT:"Hubs of excellence",polesS:"Moroccans building businesses all over the world",all:"See all",nMem:"{n} member(s)",
+dirT:"Collective directory",dirS:"Same roots, borderless ambitions.",search:"Name, city, skill…",allD:"All hubs",allC:"All countries",cnt:"{n} profile(s)",
+emptyT:"The directory is waiting for its first member",emptyD:"Create your profile to appear here and be found by other MRE.",none:"No profile matches your search.",
+pollT:"MRE: what if we took action?",pollS:"We are millions of Moroccans around the world, with different skills, experiences, ideas and networks. What could truly bring us together?",
+pollQ:"If the MRE Collective launched a big project, which would interest you most?",pA:"Invest together in Morocco",pB:"Build a business network between MRE",pC:"Find business and export opportunities",pD:"Mutual aid, contacts and good tips between MRE",
+vote:"Vote by tapping an answer",voted:"Thanks, your vote is counted. Tap another answer to change it.",votes:"{n} vote(s)",
+askA:"What are your skills?",askB:"What business do you run?",askS:"Share your experience, your projects and your fields of expertise!",askCta:"Create my profile",
+enT:"Renewable energy in Morocco",enS:"Solar, wind, storage, installation, maintenance: the next revolution is Moroccan.",enSolar:"Solar",enWind:"Wind",enStore:"Storage",enInst:"Installation",enInv:"Investment",
+enFact:"National target: 52% of installed electricity capacity from renewables by 2030. The Noor Ouarzazate solar complex exceeds 500 MW.",enQ:"What opportunities do you see?",enMem:"Energy professionals in the collective",
+back:"Back",bizL:"Their activity",seekL:"What they are looking for",skillsL:"Skills",contactL:"Contact",noMem:"No member in this hub yet.",beFirst:"Be the first in this hub",
+newT:"Join the collective",editT:"Edit my profile",fFirst:"First name",fLast:"Last name",fPhone:"Phone (with country code)",fEmail:"Email (optional)",fCountry:"Country of residence",fCity:"City",fDomain:"Field of activity",
+fBiz:"What business do you run?",fSeek:"What are you looking for? (partners, clients, advice…)",fSkills:"Your skills and qualifications",
+bizPh:"E.g. importing food products Morocco – Belgium",seekPh:"E.g. a refrigerated carrier, partners in Lyon",skPh:"E.g. qualified nurse, 5 years of experience, Arabic and English",
+consent:"I agree that my name, phone and professional details are visible to members of the collective.",
+save:"Submit my profile",upd:"Update",del:"Delete my profile",delSure:"Tap again to confirm",saved:"Welcome to the collective!",deleted:"Profile deleted",
+req:"First name, last name, phone and city are required.",consentReq:"Tick the consent box to publish your profile.",copy:"Copy",copied:"Copied",wa:"WhatsApp",you:"You",
+local:"Local mode: your data stays on this device. Open the app from its shared link and sign in to join the common directory.",ro:"Your access is read-only. Ask for Contributor access to register.",
+err:"Something went wrong. Try again.",rm:"Remove this profile",other:"Other",
+d:["Agriculture & Agri-food","Industry & Production","Retail & Distribution","Tech & Digital","Construction & Real estate","Finance & Investment","Tourism & Hospitality","Import/Export & Logistics","Innovation & Startups","Services & Consulting","Non-profit & Social","Health","Education & Training","Legal","Crafts","Beauty & Hairdressing","Food service","Automotive","Energy & Solar","Other"]};
+L.es={name:"Español",flag:"🇪🇸",
+nHome:"Inicio",nDir:"Directorio",nPoles:"Polos",nPoll:"Encuesta",nMe:"Mi perfil",
+pill:"COLECTIVO MRE INTERNACIONAL",h1a:"¿ERES MRE?",h1b:"ENTONCES ESCUCHA.",hsub:"Juntos llegamos más lejos. Una red sólida para oportunidades reales.",
+join:"Únete al colectivo",explore:"Explorar el directorio",
+vals:["Networking","Confianza","Oportunidades","Ayuda mutua","Innovación","Inversión"],
+tag:"¡Una diáspora unida, un Marruecos que avanza!",tog:"Juntos llegamos más lejos.",net:"Una red sólida para oportunidades reales.",
+stM:"Miembros",stC:"Países",stP:"Polos",live:"EN VIVO",flagSub:"Diáspora conectada",drag:"Gira el globo con el dedo",
+legend:"Cada luz une Marruecos con su diáspora. Las luces doradas son países con miembros ya registrados.",
+polesT:"Polos de excelencia",polesS:"Marroquíes que emprenden por todo el mundo",all:"Ver todo",nMem:"{n} miembro(s)",
+dirT:"Directorio del colectivo",dirS:"Mismo origen, ambiciones sin fronteras.",search:"Nombre, ciudad, competencia…",allD:"Todos los polos",allC:"Todos los países",cnt:"{n} perfil(es)",
+emptyT:"El directorio espera a su primer miembro",emptyD:"Crea tu perfil para aparecer aquí y que otros MRE te encuentren.",none:"Ningún perfil coincide con tu búsqueda.",
+pollT:"MRE: ¿y si pasamos a la acción?",pollS:"Somos millones de marroquíes en el mundo, con competencias, experiencias, ideas y redes distintas. ¿Qué podría unirnos de verdad?",
+pollQ:"Si el Colectivo MRE lanzara un gran proyecto, ¿cuál te interesaría más?",pA:"Invertir juntos en Marruecos",pB:"Crear una red de negocios entre MRE",pC:"Encontrar oportunidades de negocio y exportación",pD:"Ayuda mutua, contactos y buenos consejos entre MRE",
+vote:"Vota tocando una respuesta",voted:"Gracias, tu voto cuenta. Toca otra respuesta para cambiarlo.",votes:"{n} voto(s)",
+askA:"¿Cuáles son tus competencias?",askB:"¿Qué negocio tienes?",askS:"¡Comparte tu experiencia, tus proyectos y tus áreas de especialidad!",askCta:"Crear mi perfil",
+enT:"Energías renovables en Marruecos",enS:"Solar, eólica, almacenamiento, instalación, mantenimiento: la próxima revolución es marroquí.",enSolar:"Solar",enWind:"Eólica",enStore:"Almacenamiento",enInst:"Instalación",enInv:"Inversión",
+enFact:"Objetivo nacional: 52 % de la capacidad eléctrica instalada de origen renovable en 2030. El complejo solar Noor Uarzazate supera los 500 MW.",enQ:"¿Qué oportunidades ves?",enMem:"Profesionales de la energía en el colectivo",
+back:"Volver",bizL:"Su actividad",seekL:"Lo que busca",skillsL:"Competencias",contactL:"Contacto",noMem:"Aún no hay miembros en este polo.",beFirst:"Sé el primero de este polo",
+newT:"Unirse al colectivo",editT:"Editar mi perfil",fFirst:"Nombre",fLast:"Apellidos",fPhone:"Teléfono (con prefijo)",fEmail:"Email (opcional)",fCountry:"País de residencia",fCity:"Ciudad",fDomain:"Sector de actividad",
+fBiz:"¿Qué negocio tienes?",fSeek:"¿Qué buscas? (socios, clientes, consejos…)",fSkills:"Tus competencias y cualificaciones",
+bizPh:"Ej.: importación de productos alimentarios Marruecos – Bélgica",seekPh:"Ej.: un transportista frigorífico, socios en Lyon",skPh:"Ej.: enfermero titulado, 5 años de experiencia, árabe y español",
+consent:"Acepto que mi nombre, teléfono y datos profesionales sean visibles para los miembros del colectivo.",
+save:"Validar mi perfil",upd:"Actualizar",del:"Eliminar mi perfil",delSure:"Toca otra vez para confirmar",saved:"¡Bienvenido al colectivo!",deleted:"Perfil eliminado",
+req:"Nombre, apellidos, teléfono y ciudad son obligatorios.",consentReq:"Marca la casilla de consentimiento para publicar tu perfil.",copy:"Copiar",copied:"Copiado",wa:"WhatsApp",you:"Tú",
+local:"Modo local: tus datos se quedan en este dispositivo. Abre la app desde su enlace compartido e inicia sesión para unirte al directorio común.",ro:"Tu acceso es de solo lectura. Pide acceso de Colaborador para registrarte.",
+err:"Ha ocurrido un error. Inténtalo de nuevo.",rm:"Quitar este perfil",other:"Otro",
+d:["Agricultura y Agroalimentación","Industria y Producción","Comercio y Distribución","Tech y Digital","Construcción e Inmobiliaria","Finanzas e Inversión","Turismo y Hostelería","Import/Export y Logística","Innovación y Startups","Servicios y Consultoría","Asociativo y Social","Salud","Educación y Formación","Jurídico","Artesanía","Belleza y Peluquería","Restauración","Automoción","Energía y Solar","Otro"]};
+L.pt={name:"Português",flag:"🇵🇹",
+nHome:"Início",nDir:"Diretório",nPoles:"Polos",nPoll:"Sondagem",nMe:"O meu perfil",
+pill:"COLETIVO MRE INTERNACIONAL",h1a:"ÉS MRE?",h1b:"ENTÃO OUVE.",hsub:"Juntos vamos mais longe. Uma rede sólida para oportunidades reais.",
+join:"Junte-se ao coletivo",explore:"Explorar o diretório",
+vals:["Networking","Confiança","Oportunidades","Entreajuda","Inovação","Investimento"],
+tag:"Uma diáspora unida, um Marrocos que avança!",tog:"Juntos vamos mais longe.",net:"Uma rede sólida para oportunidades reais.",
+stM:"Membros",stC:"Países",stP:"Polos",live:"AO VIVO",flagSub:"Diáspora ligada",drag:"Rode o globo com o dedo",
+legend:"Cada luz liga Marrocos à sua diáspora. As luzes douradas são países com membros já registados.",
+polesT:"Polos de excelência",polesS:"Marroquinos a empreender em todo o mundo",all:"Ver tudo",nMem:"{n} membro(s)",
+dirT:"Diretório do coletivo",dirS:"Mesma origem, ambições sem fronteiras.",search:"Nome, cidade, competência…",allD:"Todos os polos",allC:"Todos os países",cnt:"{n} perfil(is)",
+emptyT:"O diretório espera pelo primeiro membro",emptyD:"Crie o seu perfil para aparecer aqui e ser encontrado por outros MRE.",none:"Nenhum perfil corresponde à sua pesquisa.",
+pollT:"MRE: e se passássemos à ação?",pollS:"Somos milhões de marroquinos pelo mundo, com competências, experiências, ideias e redes diferentes. O que nos poderia realmente unir?",
+pollQ:"Se o Coletivo MRE lançasse um grande projeto, qual lhe interessaria mais?",pA:"Investir juntos em Marrocos",pB:"Criar uma rede de negócios entre MRE",pC:"Encontrar oportunidades de negócio e exportação",pD:"Entreajuda, contactos e boas dicas entre MRE",
+vote:"Vote tocando numa resposta",voted:"Obrigado, o seu voto conta. Toque noutra resposta para o mudar.",votes:"{n} voto(s)",
+askA:"Quais são as suas competências?",askB:"Que negócio tem?",askS:"Partilhe a sua experiência, os seus projetos e as suas áreas de especialidade!",askCta:"Criar o meu perfil",
+enT:"Energias renováveis em Marrocos",enS:"Solar, eólica, armazenamento, instalação, manutenção: a próxima revolução é marroquina.",enSolar:"Solar",enWind:"Eólica",enStore:"Armazenamento",enInst:"Instalação",enInv:"Investimento",
+enFact:"Meta nacional: 52 % da capacidade elétrica instalada de origem renovável até 2030. O complexo solar Noor Ouarzazate ultrapassa os 500 MW.",enQ:"Que oportunidades vê?",enMem:"Profissionais de energia no coletivo",
+back:"Voltar",bizL:"A sua atividade",seekL:"O que procura",skillsL:"Competências",contactL:"Contacto",noMem:"Ainda não há membros neste polo.",beFirst:"Seja o primeiro deste polo",
+newT:"Juntar-se ao coletivo",editT:"Editar o meu perfil",fFirst:"Nome próprio",fLast:"Apelido",fPhone:"Telefone (com indicativo)",fEmail:"Email (opcional)",fCountry:"País de residência",fCity:"Cidade",fDomain:"Área de atividade",
+fBiz:"Que negócio tem?",fSeek:"O que procura? (parceiros, clientes, conselhos…)",fSkills:"As suas competências e qualificações",
+bizPh:"Ex.: importação de produtos alimentares Marrocos – Bélgica",seekPh:"Ex.: um transportador frigorífico, parceiros em Lyon",skPh:"Ex.: enfermeiro licenciado, 5 anos de experiência, árabe e português",
+consent:"Aceito que o meu nome, telefone e dados profissionais sejam visíveis para os membros do coletivo.",
+save:"Validar o meu perfil",upd:"Atualizar",del:"Eliminar o meu perfil",delSure:"Toque outra vez para confirmar",saved:"Bem-vindo ao coletivo!",deleted:"Perfil eliminado",
+req:"Nome, apelido, telefone e cidade são obrigatórios.",consentReq:"Marque a caixa de consentimento para publicar o seu perfil.",copy:"Copiar",copied:"Copiado",wa:"WhatsApp",you:"Você",
+local:"Modo local: os seus dados ficam neste dispositivo. Abra a app pelo link partilhado e inicie sessão para entrar no diretório comum.",ro:"O seu acesso é só de leitura. Peça acesso de Colaborador para se registar.",
+err:"Ocorreu um erro. Tente novamente.",rm:"Remover este perfil",other:"Outro",
+d:["Agricultura e Agroalimentar","Indústria e Produção","Comércio e Distribuição","Tech e Digital","Construção e Imobiliário","Finanças e Investimento","Turismo e Hotelaria","Import/Export e Logística","Inovação e Startups","Serviços e Consultoria","Associativo e Social","Saúde","Educação e Formação","Jurídico","Artesanato","Beleza e Cabeleireiro","Restauração","Automóvel","Energia e Solar","Outro"]};
+L.it={name:"Italiano",flag:"🇮🇹",
+nHome:"Home",nDir:"Rubrica",nPoles:"Poli",nPoll:"Sondaggio",nMe:"Il mio profilo",
+pill:"COLLETTIVO MRE INTERNAZIONALE",h1a:"SEI MRE?",h1b:"ALLORA ASCOLTA.",hsub:"Insieme andiamo più lontano. Una rete solida per opportunità reali.",
+join:"Unisciti al collettivo",explore:"Esplora la rubrica",
+vals:["Networking","Fiducia","Opportunità","Mutuo aiuto","Innovazione","Investimento"],
+tag:"Una diaspora unita, un Marocco che avanza!",tog:"Insieme andiamo più lontano.",net:"Una rete solida per opportunità reali.",
+stM:"Membri",stC:"Paesi",stP:"Poli",live:"IN DIRETTA",flagSub:"Diaspora connessa",drag:"Fai ruotare il globo con il dito",
+legend:"Ogni luce collega il Marocco alla sua diaspora. Le luci dorate sono i paesi con membri già iscritti.",
+polesT:"Poli di eccellenza",polesS:"Marocchini che fanno impresa in tutto il mondo",all:"Vedi tutto",nMem:"{n} membro/i",
+dirT:"Rubrica del collettivo",dirS:"Stessa origine, ambizioni senza confini.",search:"Nome, città, competenza…",allD:"Tutti i poli",allC:"Tutti i paesi",cnt:"{n} profilo/i",
+emptyT:"La rubrica aspetta il suo primo membro",emptyD:"Crea il tuo profilo per comparire qui ed essere trovato da altri MRE.",none:"Nessun profilo corrisponde alla ricerca.",
+pollT:"MRE: e se passassimo all'azione?",pollS:"Siamo milioni di marocchini nel mondo, con competenze, esperienze, idee e reti diverse. Cosa potrebbe davvero unirci?",
+pollQ:"Se il Collettivo MRE lanciasse un grande progetto, quale ti interesserebbe di più?",pA:"Investire insieme in Marocco",pB:"Creare una rete business tra MRE",pC:"Trovare opportunità di affari e di export",pD:"Mutuo aiuto, contatti e buoni consigli tra MRE",
+vote:"Vota toccando una risposta",voted:"Grazie, il tuo voto è conteggiato. Tocca un'altra risposta per cambiarlo.",votes:"{n} voto/i",
+askA:"Quali sono le tue competenze?",askB:"Che attività hai?",askS:"Condividi la tua esperienza, i tuoi progetti e i tuoi ambiti di competenza!",askCta:"Crea il mio profilo",
+enT:"Energie rinnovabili in Marocco",enS:"Solare, eolico, accumulo, installazione, manutenzione: la prossima rivoluzione è marocchina.",enSolar:"Solare",enWind:"Eolico",enStore:"Accumulo",enInst:"Installazione",enInv:"Investimento",
+enFact:"Obiettivo nazionale: 52 % della capacità elettrica installata da fonti rinnovabili entro il 2030. Il complesso solare Noor Ouarzazate supera i 500 MW.",enQ:"Quali opportunità vedi?",enMem:"Professionisti dell'energia nel collettivo",
+back:"Indietro",bizL:"La sua attività",seekL:"Cosa cerca",skillsL:"Competenze",contactL:"Contatto",noMem:"Ancora nessun membro in questo polo.",beFirst:"Sii il primo di questo polo",
+newT:"Unisciti al collettivo",editT:"Modifica il mio profilo",fFirst:"Nome",fLast:"Cognome",fPhone:"Telefono (con prefisso)",fEmail:"Email (facoltativa)",fCountry:"Paese di residenza",fCity:"Città",fDomain:"Settore di attività",
+fBiz:"Che attività hai?",fSeek:"Cosa cerchi? (partner, clienti, consigli…)",fSkills:"Le tue competenze e qualifiche",
+bizPh:"Es.: import di prodotti alimentari Marocco – Belgio",seekPh:"Es.: un trasportatore frigorifero, partner a Lione",skPh:"Es.: infermiere diplomato, 5 anni di esperienza, arabo e italiano",
+consent:"Accetto che il mio nome, telefono e dati professionali siano visibili ai membri del collettivo.",
+save:"Convalida il mio profilo",upd:"Aggiorna",del:"Elimina il mio profilo",delSure:"Tocca ancora per confermare",saved:"Benvenuto nel collettivo!",deleted:"Profilo eliminato",
+req:"Nome, cognome, telefono e città sono obbligatori.",consentReq:"Spunta la casella di consenso per pubblicare il profilo.",copy:"Copia",copied:"Copiato",wa:"WhatsApp",you:"Tu",
+local:"Modalità locale: i tuoi dati restano su questo dispositivo. Apri l'app dal link condiviso e accedi per unirti alla rubrica comune.",ro:"Il tuo accesso è in sola lettura. Chiedi l'accesso come Collaboratore per registrarti.",
+err:"Si è verificato un errore. Riprova.",rm:"Rimuovi questo profilo",other:"Altro",
+d:["Agricoltura e Agroalimentare","Industria e Produzione","Commercio e Distribuzione","Tech e Digitale","Edilizia e Immobiliare","Finanza e Investimenti","Turismo e Ospitalità","Import/Export e Logistica","Innovazione e Startup","Servizi e Consulenza","Associazioni e Sociale","Salute","Istruzione e Formazione","Legale","Artigianato","Bellezza e Parrucchiere","Ristorazione","Automotive","Energia e Solare","Altro"]};
+L.nl={name:"Nederlands",flag:"🇳🇱",
+nHome:"Home",nDir:"Gids",nPoles:"Polen",nPoll:"Peiling",nMe:"Mijn profiel",
+pill:"MRE INTERNATIONAAL COLLECTIEF",h1a:"BEN JIJ MRE?",h1b:"LUISTER DAN.",hsub:"Samen gaan we verder. Een sterk netwerk voor echte kansen.",
+join:"Word lid van het collectief",explore:"Bekijk de gids",
+vals:["Netwerken","Vertrouwen","Kansen","Onderlinge hulp","Innovatie","Investeren"],
+tag:"Een verenigde diaspora, een Marokko dat vooruitgaat!",tog:"Samen gaan we verder.",net:"Een sterk netwerk voor echte kansen.",
+stM:"Leden",stC:"Landen",stP:"Polen",live:"LIVE",flagSub:"Verbonden diaspora",drag:"Draai de wereldbol met je vinger",
+legend:"Elk lichtje verbindt Marokko met zijn diaspora. Gouden lichtjes zijn landen waar al leden ingeschreven zijn.",
+polesT:"Polen van uitmuntendheid",polesS:"Marokkanen die overal ter wereld ondernemen",all:"Alles zien",nMem:"{n} lid/leden",
+dirT:"Gids van het collectief",dirS:"Zelfde oorsprong, grenzeloze ambities.",search:"Naam, stad, vaardigheid…",allD:"Alle polen",allC:"Alle landen",cnt:"{n} profiel(en)",
+emptyT:"De gids wacht op het eerste lid",emptyD:"Maak je profiel aan om hier te verschijnen en gevonden te worden door andere MRE.",none:"Geen profiel past bij je zoekopdracht.",
+pollT:"MRE: wat als we actie ondernemen?",pollS:"We zijn miljoenen Marokkanen over de hele wereld, met verschillende vaardigheden, ervaringen, ideeën en netwerken. Wat zou ons echt kunnen verbinden?",
+pollQ:"Als het MRE-collectief een groot project lanceerde, welk zou je het meest interesseren?",pA:"Samen investeren in Marokko",pB:"Een zakennetwerk tussen MRE bouwen",pC:"Zakelijke kansen en exportkansen vinden",pD:"Onderlinge hulp, contacten en goede tips tussen MRE",
+vote:"Stem door een antwoord aan te tikken",voted:"Bedankt, je stem telt. Tik een ander antwoord aan om te wijzigen.",votes:"{n} stem(men)",
+askA:"Wat zijn je vaardigheden?",askB:"Welk bedrijf heb je?",askS:"Deel je ervaring, je projecten en je expertisegebieden!",askCta:"Mijn profiel maken",
+enT:"Hernieuwbare energie in Marokko",enS:"Zon, wind, opslag, installatie, onderhoud: de volgende revolutie is Marokkaans.",enSolar:"Zon",enWind:"Wind",enStore:"Opslag",enInst:"Installatie",enInv:"Investeren",
+enFact:"Nationale doelstelling: 52 % van het geïnstalleerde elektriciteitsvermogen uit hernieuwbare bronnen tegen 2030. Het zonnecomplex Noor Ouarzazate telt meer dan 500 MW.",enQ:"Welke kansen zie jij?",enMem:"Energieprofessionals in het collectief",
+back:"Terug",bizL:"Zijn/haar activiteit",seekL:"Waar hij/zij naar zoekt",skillsL:"Vaardigheden",contactL:"Contact",noMem:"Nog geen leden in deze pool.",beFirst:"Wees de eerste in deze pool",
+newT:"Lid worden",editT:"Mijn profiel wijzigen",fFirst:"Voornaam",fLast:"Achternaam",fPhone:"Telefoon (met landcode)",fEmail:"E-mail (optioneel)",fCountry:"Land van verblijf",fCity:"Stad",fDomain:"Werkveld",
+fBiz:"Welk bedrijf heb je?",fSeek:"Waar zoek je naar? (partners, klanten, advies…)",fSkills:"Je vaardigheden en kwalificaties",
+bizPh:"Bijv. import van voedingsproducten Marokko – België",seekPh:"Bijv. een koeltransporteur, partners in Lyon",skPh:"Bijv. gediplomeerd verpleger, 5 jaar ervaring, Arabisch en Nederlands",
+consent:"Ik ga ermee akkoord dat mijn naam, telefoonnummer en beroepsgegevens zichtbaar zijn voor de leden van het collectief.",
+save:"Mijn profiel bevestigen",upd:"Bijwerken",del:"Mijn profiel verwijderen",delSure:"Tik nogmaals om te bevestigen",saved:"Welkom bij het collectief!",deleted:"Profiel verwijderd",
+req:"Voornaam, achternaam, telefoon en stad zijn verplicht.",consentReq:"Vink het toestemmingsvakje aan om je profiel te publiceren.",copy:"Kopiëren",copied:"Gekopieerd",wa:"WhatsApp",you:"Jij",
+local:"Lokale modus: je gegevens blijven op dit toestel. Open de app via de gedeelde link en log in om de gedeelde gids te gebruiken.",ro:"Je toegang is alleen-lezen. Vraag toegang als Bijdrager om je te registreren.",
+err:"Er ging iets mis. Probeer opnieuw.",rm:"Dit profiel verwijderen",other:"Andere",
+d:["Landbouw & Agrovoeding","Industrie & Productie","Handel & Distributie","Tech & Digitaal","Bouw & Vastgoed","Financiën & Investeren","Toerisme & Horeca","Import/Export & Logistiek","Innovatie & Startups","Diensten & Advies","Verenigingen & Sociaal","Gezondheid","Onderwijs & Opleiding","Juridisch","Ambacht","Schoonheid & Kapper","Eten & Drinken","Automotive","Energie & Zonne-energie","Andere"]};
+/* Vlaams (België) : variant van het Nederlands met Belgisch woordgebruik */
+L.nlbe=Object.assign({},L.nl,{name:"Vlaams (BE)",flag:"🇧🇪",
+nPoles:"Sectoren",polesT:"Sectoren van uitmuntendheid",allD:"Alle sectoren",noMem:"Nog geen leden in deze sector.",beFirst:"Wees de eerste in deze sector",
+hsub:"Samen geraken we verder. Een stevig netwerk voor echte kansen.",net:"Een stevig netwerk voor echte kansen.",tog:"Samen geraken we verder.",
+newT:"Mij inschrijven",editT:"Mijn inschrijving wijzigen",fPhone:"GSM-nummer (met landcode)",fCity:"Gemeente",fDomain:"Beroepssector",save:"Mijn profiel bewaren",
+search:"Naam, gemeente, vaardigheid…",d:["Land- en tuinbouw","Industrie & Productie","Handel & Distributie","Tech & Digitaal","Bouw & Immo","Financiën & Beleggen","Toerisme & Horeca","Import/Export & Logistiek","Innovatie & Startups","Diensten & Advies","Vzw's & Sociaal","Gezondheid","Onderwijs & Opleiding","Juridisch","Ambacht","Schoonheid & Kapper","Horeca","Autosector","Energie & Zonnepanelen","Andere"]});
+L.de={name:"Deutsch",flag:"🇩🇪",
+nHome:"Start",nDir:"Verzeichnis",nPoles:"Bereiche",nPoll:"Umfrage",nMe:"Mein Profil",
+pill:"MRE INTERNATIONALES KOLLEKTIV",h1a:"BIST DU MRE?",h1b:"DANN HÖR ZU.",hsub:"Gemeinsam kommen wir weiter. Ein starkes Netzwerk für echte Chancen.",
+join:"Dem Kollektiv beitreten",explore:"Verzeichnis ansehen",
+vals:["Netzwerk","Vertrauen","Chancen","Zusammenhalt","Innovation","Investition"],
+tag:"Eine vereinte Diaspora, ein Marokko, das vorankommt!",tog:"Gemeinsam kommen wir weiter.",net:"Ein starkes Netzwerk für echte Chancen.",
+stM:"Mitglieder",stC:"Länder",stP:"Bereiche",live:"LIVE",flagSub:"Vernetzte Diaspora",drag:"Drehe den Globus mit dem Finger",
+legend:"Jedes Licht verbindet Marokko mit seiner Diaspora. Goldene Lichter sind Länder mit bereits registrierten Mitgliedern.",
+polesT:"Exzellenz-Bereiche",polesS:"Marokkaner, die überall auf der Welt unternehmen",all:"Alle ansehen",nMem:"{n} Mitglied(er)",
+dirT:"Verzeichnis des Kollektivs",dirS:"Gleiche Herkunft, grenzenlose Ambitionen.",search:"Name, Stadt, Fähigkeit…",allD:"Alle Bereiche",allC:"Alle Länder",cnt:"{n} Profil(e)",
+emptyT:"Das Verzeichnis wartet auf sein erstes Mitglied",emptyD:"Erstelle dein Profil, um hier zu erscheinen und von anderen MRE gefunden zu werden.",none:"Kein Profil passt zu deiner Suche.",
+pollT:"MRE: Was, wenn wir handeln?",pollS:"Wir sind Millionen Marokkaner auf der ganzen Welt, mit unterschiedlichen Fähigkeiten, Erfahrungen, Ideen und Netzwerken. Was könnte uns wirklich zusammenbringen?",
+pollQ:"Wenn das MRE-Kollektiv ein großes Projekt starten würde, welches würde dich am meisten interessieren?",pA:"Gemeinsam in Marokko investieren",pB:"Ein Business-Netzwerk unter MRE aufbauen",pC:"Geschäfts- und Exportchancen finden",pD:"Zusammenhalt, Kontakte und gute Tipps unter MRE",
+vote:"Stimme ab, indem du eine Antwort antippst",voted:"Danke, deine Stimme zählt. Tippe eine andere Antwort an, um sie zu ändern.",votes:"{n} Stimme(n)",
+askA:"Was sind deine Fähigkeiten?",askB:"Welches Business führst du?",askS:"Teile deine Erfahrung, deine Projekte und deine Fachgebiete!",askCta:"Mein Profil erstellen",
+enT:"Erneuerbare Energien in Marokko",enS:"Solar, Wind, Speicher, Installation, Wartung: Die nächste Revolution ist marokkanisch.",enSolar:"Solar",enWind:"Wind",enStore:"Speicher",enInst:"Installation",enInv:"Investition",
+enFact:"Nationales Ziel: 52 % der installierten Stromerzeugungskapazität aus erneuerbaren Quellen bis 2030. Der Solarkomplex Noor Ouarzazate hat über 500 MW.",enQ:"Welche Chancen siehst du?",enMem:"Energie-Profis im Kollektiv",
+back:"Zurück",bizL:"Tätigkeit",seekL:"Gesucht wird",skillsL:"Fähigkeiten",contactL:"Kontakt",noMem:"Noch keine Mitglieder in diesem Bereich.",beFirst:"Sei der Erste in diesem Bereich",
+newT:"Dem Kollektiv beitreten",editT:"Mein Profil bearbeiten",fFirst:"Vorname",fLast:"Nachname",fPhone:"Telefon (mit Landesvorwahl)",fEmail:"E-Mail (optional)",fCountry:"Wohnsitzland",fCity:"Stadt",fDomain:"Tätigkeitsbereich",
+fBiz:"Welches Business führst du?",fSeek:"Was suchst du? (Partner, Kunden, Rat…)",fSkills:"Deine Fähigkeiten und Qualifikationen",
+bizPh:"Z. B. Import von Lebensmitteln Marokko – Belgien",seekPh:"Z. B. ein Kühltransporteur, Partner in Lyon",skPh:"Z. B. examinierter Pfleger, 5 Jahre Erfahrung, Arabisch und Deutsch",
+consent:"Ich bin einverstanden, dass mein Name, meine Telefonnummer und meine beruflichen Angaben für Mitglieder des Kollektivs sichtbar sind.",
+save:"Profil bestätigen",upd:"Aktualisieren",del:"Mein Profil löschen",delSure:"Zum Bestätigen erneut tippen",saved:"Willkommen im Kollektiv!",deleted:"Profil gelöscht",
+req:"Vorname, Nachname, Telefon und Stadt sind Pflichtfelder.",consentReq:"Bitte das Einverständnis ankreuzen, um das Profil zu veröffentlichen.",copy:"Kopieren",copied:"Kopiert",wa:"WhatsApp",you:"Du",
+local:"Lokaler Modus: Deine Daten bleiben auf diesem Gerät. Öffne die App über den geteilten Link und melde dich an, um das gemeinsame Verzeichnis zu nutzen.",ro:"Dein Zugriff ist schreibgeschützt. Bitte um Mitwirkenden-Zugriff, um dich einzutragen.",
+err:"Es ist ein Fehler aufgetreten. Bitte erneut versuchen.",rm:"Dieses Profil entfernen",other:"Andere",
+d:["Landwirtschaft & Lebensmittel","Industrie & Produktion","Handel & Vertrieb","Tech & Digital","Bau & Immobilien","Finanzen & Investment","Tourismus & Hotellerie","Import/Export & Logistik","Innovation & Startups","Dienstleistungen & Beratung","Soziales & Vereine","Gesundheit","Bildung & Ausbildung","Recht","Handwerk","Schönheit & Friseur","Gastronomie","Automobil","Energie & Solar","Andere"]};
+L.ar={name:"العربية",flag:"🇲🇦",
+nHome:"الرئيسية",nDir:"الدليل",nPoles:"القطاعات",nPoll:"استطلاع",nMe:"ملفي",
+pill:"التجمع الدولي للمغاربة المقيمين بالخارج",
+join:"انضم إلى التجمع",explore:"استكشف الدليل",
+vals:["التواصل","الثقة","الفرص","التعاون","الابتكار","الاستثمار"],
+tag:"جالية متحدة، ومغرب يتقدم!",tog:"معًا نصل أبعد.",net:"شبكة قوية لفرص حقيقية.",
+stM:"الأعضاء",stC:"البلدان",stP:"القطاعات",live:"مباشر",flagSub:"جالية متصلة",drag:"أدر الكرة الأرضية بإصبعك",
+legend:"كل ضوء يربط المغرب بجاليته. الأضواء الذهبية هي البلدان التي يوجد فيها أعضاء مسجلون.",
+polesT:"قطاعات التميز",polesS:"مغاربة يبادرون ويستثمرون في كل أنحاء العالم",all:"عرض الكل",nMem:"{n} عضو",
+dirT:"دليل التجمع",dirS:"أصل واحد، وطموحات بلا حدود.",search:"الاسم، المدينة، المهارة…",allD:"كل القطاعات",allC:"كل البلدان",cnt:"{n} ملف",
+emptyT:"الدليل ينتظر أول عضو",emptyD:"أنشئ ملفك ليظهر هنا ويجده المغاربة المقيمون بالخارج.",none:"لا يوجد ملف يطابق بحثك.",
+pollT:"مغاربة العالم: وماذا لو انتقلنا إلى الفعل؟",pollS:"نحن ملايين المغاربة عبر العالم، بكفاءات وتجارب وأفكار وشبكات مختلفة. ما الذي يمكن أن يجمعنا حقًا؟",
+pollQ:"لو أطلق التجمع مشروعًا كبيرًا، فأيّها يهمك أكثر؟",pA:"الاستثمار معًا في المغرب",pB:"بناء شبكة أعمال بين مغاربة العالم",pC:"إيجاد فرص تجارية وتصديرية",pD:"التعاون والعلاقات والنصائح المفيدة بين مغاربة العالم",
+vote:"صوّت بالضغط على إجابة",voted:"شكرًا، تم احتساب صوتك. اضغط على إجابة أخرى لتغييره.",votes:"{n} صوت",
+askA:"ما هي مهاراتك؟",askB:"ما هو مشروعك التجاري؟",askS:"شارك خبرتك ومشاريعك ومجالات تخصصك!",askCta:"أنشئ ملفي",
+enT:"الطاقات المتجددة في المغرب",enS:"الطاقة الشمسية والريحية والتخزين والتركيب والصيانة: الثورة القادمة مغربية.",enSolar:"شمسية",enWind:"ريحية",enStore:"تخزين",enInst:"تركيب",enInv:"استثمار",
+enFact:"الهدف الوطني: 52% من القدرة الكهربائية المركّبة من مصادر متجددة بحلول 2030. ويتجاوز مجمع نور ورزازات للطاقة الشمسية 500 ميغاواط.",enQ:"ما الفرص التي تراها؟",enMem:"مهنيو الطاقة في التجمع",
+back:"رجوع",bizL:"نشاطه",seekL:"ما يبحث عنه",skillsL:"المهارات",contactL:"التواصل",noMem:"لا يوجد أعضاء في هذا القطاع بعد.",beFirst:"كن أول المسجلين في هذا القطاع",
+newT:"انضم إلى التجمع",editT:"تعديل ملفي",fFirst:"الاسم الشخصي",fLast:"الاسم العائلي",fPhone:"الهاتف (مع رمز البلد)",fEmail:"البريد الإلكتروني (اختياري)",fCountry:"بلد الإقامة",fCity:"المدينة",fDomain:"مجال النشاط",
+fBiz:"ما هو مشروعك التجاري؟",fSeek:"عمّ تبحث؟ (شركاء، زبناء، نصائح…)",fSkills:"مهاراتك ومؤهلاتك",
+bizPh:"مثال: استيراد المنتجات الغذائية بين المغرب وبلجيكا",seekPh:"مثال: ناقل بضائع مبرّدة، شركاء في ليون",skPh:"مثال: ممرض حاصل على دبلوم، 5 سنوات خبرة، العربية والفرنسية",
+consent:"أوافق على أن يكون اسمي ورقم هاتفي ومعلوماتي المهنية مرئية لأعضاء التجمع.",
+save:"تأكيد ملفي",upd:"تحديث",del:"حذف ملفي",delSure:"اضغط مرة أخرى للتأكيد",saved:"مرحبًا بك في التجمع!",deleted:"تم حذف الملف",
+req:"الاسم الشخصي والعائلي والهاتف والمدينة حقول إلزامية.",consentReq:"ضع علامة الموافقة لنشر ملفك.",copy:"نسخ",copied:"تم النسخ",wa:"واتساب",you:"أنت",
+local:"",ro:"صلاحيتك للقراءة فقط. اطلب صلاحية مساهم لتسجيل نفسك.",
+err:"حدث خطأ. حاول مرة أخرى.",rm:"إزالة هذا الملف",other:"أخرى",
+d:["الفلاحة والصناعات الغذائية","الصناعة والإنتاج","التجارة والتوزيع","التكنولوجيا والرقمنة","البناء والعقار","المالية والاستثمار","السياحة والفندقة","الاستيراد والتصدير واللوجستيك","الابتكار والمقاولات الناشئة","الخدمات والاستشارة","العمل الجمعوي والاجتماعي","الصحة","التعليم والتكوين","القانون","الصناعة التقليدية","التجميل والحلاقة","المطاعم","السيارات","الطاقة والطاقة الشمسية","أخرى"]};
+
+var ADD={
+fr:{h1a:"L'ÉCOSYSTÈME MAROCAIN",h1b:"DU MONDE ENTIER.",hsub:"Ton carnet de contacts international : trouve le bon professionnel, au bon endroit, en un clic.",
+nBiz:"Business",bizT:"Moroccan Business",bizSub:"Entrepreneurs et investisseurs marocains du monde entier : transformer l'ambition en opportunité concrète au Maroc.",
+bizGetT:"Ce que tu peux obtenir",bizG1:"Un accès direct à des contacts et à des projets de la diaspora marocaine : partenaires potentiels et entrepreneurs au Maroc.",bizG2:"Une visibilité immédiate grâce à l'écosystème des Marocains résidant à l'étranger.",
+bizIT:"Tu veux investir ?",bizID:"Investir, t'implanter ou te développer dans le Royaume : retrouve des porteurs de projets et des partenaires.",
+bizPT:"Tu es MRE avec un projet ?",bizPD:"Entrepreneur MRE avec un projet structuré à développer au Maroc ? Présente-le au collectif et rencontre ceux qui peuvent t'aider à le réaliser.",
+bizSeeI:"Voir les investisseurs ({n})",bizSeeP:"Voir les projets ({n})",bizDisc:"MRE Connect met en relation. Ce n'est ni un conseil financier ni un conseil juridique : vérifie toujours tes partenaires avant de t'engager.",bizCta:"Je rejoins Moroccan Business",
+fRole:"Mon profil business",rN:"Professionnel / particulier",rI:"Investisseur",rP:"Porteur de projet",rB:"Investisseur et porteur de projet",roleAll:"Tous les profils business",view:"Voir la fiche",
+cofBtn:"Offrir un café",cofT:"Cette application est 100 % gratuite",cofD:"Elle t'est utile ? Offre-moi un petit café pour soutenir son développement.",cofSoon:"Le lien de don arrive bientôt.",
+local:"Mode local : tes données restent sur cet appareil (annuaire commun non connecté)."},
+en:{h1a:"THE MOROCCAN ECOSYSTEM",h1b:"WORLDWIDE.",hsub:"Your international address book: find the right professional, in the right place, in one click.",
+nBiz:"Business",bizT:"Moroccan Business",bizSub:"Moroccan entrepreneurs and investors worldwide: turning ambition into concrete opportunity in Morocco.",
+bizGetT:"What you can get",bizG1:"Direct access to contacts and projects from the Moroccan diaspora: potential partners and entrepreneurs in Morocco.",bizG2:"Immediate visibility through the ecosystem of Moroccans living abroad.",
+bizIT:"Want to invest?",bizID:"Invest, set up or grow in the Kingdom: meet project owners and partners.",
+bizPT:"An MRE with a project?",bizPD:"An MRE entrepreneur with a structured project to develop in Morocco? Present it to the collective and meet people who can help you make it happen.",
+bizSeeI:"See investors ({n})",bizSeeP:"See projects ({n})",bizDisc:"MRE Connect connects people. It is neither financial nor legal advice: always check your partners before committing.",bizCta:"Join Moroccan Business",
+fRole:"My business profile",rN:"Professional / individual",rI:"Investor",rP:"Project owner",rB:"Investor and project owner",roleAll:"All business profiles",view:"View profile",
+cofBtn:"Buy me a coffee",cofT:"This app is 100% free",cofD:"Is it useful to you? Buy me a small coffee to support its development.",cofSoon:"The donation link is coming soon.",
+local:"Local mode: your data stays on this device (shared directory not connected)."},
+es:{h1a:"EL ECOSISTEMA MARROQUÍ",h1b:"EN TODO EL MUNDO.",hsub:"Tu agenda internacional de contactos: encuentra al profesional adecuado, en el lugar adecuado, con un clic.",
+nBiz:"Business",bizT:"Moroccan Business",bizSub:"Emprendedores e inversores marroquíes de todo el mundo: convertir la ambición en oportunidad concreta en Marruecos.",
+bizGetT:"Lo que puedes obtener",bizG1:"Acceso directo a contactos y proyectos de la diáspora marroquí: posibles socios y emprendedores en Marruecos.",bizG2:"Visibilidad inmediata gracias al ecosistema de los marroquíes residentes en el extranjero.",
+bizIT:"¿Quieres invertir?",bizID:"Invierte, instálate o crece en el Reino: encuentra promotores de proyectos y socios.",
+bizPT:"¿Eres MRE con un proyecto?",bizPD:"¿Emprendedor MRE con un proyecto estructurado para desarrollar en Marruecos? Preséntalo al colectivo y conoce a quienes pueden ayudarte a realizarlo.",
+bizSeeI:"Ver inversores ({n})",bizSeeP:"Ver proyectos ({n})",bizDisc:"MRE Connect pone en contacto. No es asesoramiento financiero ni jurídico: comprueba siempre a tus socios antes de comprometerte.",bizCta:"Unirme a Moroccan Business",
+fRole:"Mi perfil de negocio",rN:"Profesional / particular",rI:"Inversor",rP:"Promotor de proyecto",rB:"Inversor y promotor de proyecto",roleAll:"Todos los perfiles de negocio",view:"Ver ficha",
+cofBtn:"Invítame a un café",cofT:"Esta aplicación es 100 % gratuita",cofD:"¿Te resulta útil? Invítame a un cafecito para apoyar su desarrollo.",cofSoon:"El enlace de donación llegará pronto.",
+local:"Modo local: tus datos se quedan en este dispositivo (directorio común no conectado)."},
+pt:{h1a:"O ECOSSISTEMA MARROQUINO",h1b:"EM TODO O MUNDO.",hsub:"O seu livro de contactos internacional: encontre o profissional certo, no sítio certo, com um clique.",
+nBiz:"Business",bizT:"Moroccan Business",bizSub:"Empreendedores e investidores marroquinos de todo o mundo: transformar a ambição em oportunidade concreta em Marrocos.",
+bizGetT:"O que pode obter",bizG1:"Acesso direto a contactos e projetos da diáspora marroquina: potenciais parceiros e empreendedores em Marrocos.",bizG2:"Visibilidade imediata graças ao ecossistema dos marroquinos residentes no estrangeiro.",
+bizIT:"Quer investir?",bizID:"Invista, instale-se ou desenvolva-se no Reino: encontre promotores de projetos e parceiros.",
+bizPT:"É MRE com um projeto?",bizPD:"Empreendedor MRE com um projeto estruturado para desenvolver em Marrocos? Apresente-o ao coletivo e conheça quem o pode ajudar a concretizá-lo.",
+bizSeeI:"Ver investidores ({n})",bizSeeP:"Ver projetos ({n})",bizDisc:"O MRE Connect põe as pessoas em contacto. Não é aconselhamento financeiro nem jurídico: verifique sempre os seus parceiros antes de se comprometer.",bizCta:"Juntar-me ao Moroccan Business",
+fRole:"O meu perfil de negócio",rN:"Profissional / particular",rI:"Investidor",rP:"Promotor de projeto",rB:"Investidor e promotor de projeto",roleAll:"Todos os perfis de negócio",view:"Ver ficha",
+cofBtn:"Pague-me um café",cofT:"Esta aplicação é 100 % gratuita",cofD:"É-lhe útil? Pague-me um cafezinho para apoiar o seu desenvolvimento.",cofSoon:"O link de doação chega em breve.",
+local:"Modo local: os seus dados ficam neste dispositivo (diretório comum não ligado)."},
+it:{h1a:"L'ECOSISTEMA MAROCCHINO",h1b:"IN TUTTO IL MONDO.",hsub:"La tua rubrica internazionale: trova il professionista giusto, nel posto giusto, con un clic.",
+nBiz:"Business",bizT:"Moroccan Business",bizSub:"Imprenditori e investitori marocchini di tutto il mondo: trasformare l'ambizione in opportunità concreta in Marocco.",
+bizGetT:"Cosa puoi ottenere",bizG1:"Accesso diretto a contatti e progetti della diaspora marocchina: potenziali partner e imprenditori in Marocco.",bizG2:"Visibilità immediata grazie all'ecosistema dei marocchini residenti all'estero.",
+bizIT:"Vuoi investire?",bizID:"Investi, stabilisciti o cresci nel Regno: incontra promotori di progetti e partner.",
+bizPT:"Sei MRE con un progetto?",bizPD:"Imprenditore MRE con un progetto strutturato da sviluppare in Marocco? Presentalo al collettivo e incontra chi può aiutarti a realizzarlo.",
+bizSeeI:"Vedi gli investitori ({n})",bizSeeP:"Vedi i progetti ({n})",bizDisc:"MRE Connect mette in contatto. Non è una consulenza finanziaria né legale: verifica sempre i tuoi partner prima di impegnarti.",bizCta:"Unisciti a Moroccan Business",
+fRole:"Il mio profilo business",rN:"Professionista / privato",rI:"Investitore",rP:"Promotore di progetto",rB:"Investitore e promotore di progetto",roleAll:"Tutti i profili business",view:"Vedi scheda",
+cofBtn:"Offrimi un caffè",cofT:"Questa app è gratuita al 100 %",cofD:"Ti è utile? Offrimi un caffè per sostenerne lo sviluppo.",cofSoon:"Il link per la donazione arriva presto.",
+local:"Modalità locale: i tuoi dati restano su questo dispositivo (rubrica comune non collegata)."},
+nl:{h1a:"HET MAROKKAANSE ECOSYSTEEM",h1b:"WERELDWIJD.",hsub:"Jouw internationale contactenboek: vind met één klik de juiste professional op de juiste plek.",
+nBiz:"Business",bizT:"Moroccan Business",bizSub:"Marokkaanse ondernemers en investeerders wereldwijd: ambitie omzetten in concrete kansen in Marokko.",
+bizGetT:"Wat je kunt krijgen",bizG1:"Directe toegang tot contacten en projecten van de Marokkaanse diaspora: mogelijke partners en ondernemers in Marokko.",bizG2:"Directe zichtbaarheid dankzij het ecosysteem van Marokkanen in het buitenland.",
+bizIT:"Wil je investeren?",bizID:"Investeer, vestig je of groei in het Koninkrijk: ontmoet projecteigenaars en partners.",
+bizPT:"MRE met een project?",bizPD:"MRE-ondernemer met een uitgewerkt project in Marokko? Stel het voor aan het collectief en ontmoet wie je kan helpen het te realiseren.",
+bizSeeI:"Investeerders bekijken ({n})",bizSeeP:"Projecten bekijken ({n})",bizDisc:"MRE Connect brengt mensen samen. Het is geen financieel of juridisch advies: controleer je partners altijd voor je je engageert.",bizCta:"Word lid van Moroccan Business",
+fRole:"Mijn businessprofiel",rN:"Professional / particulier",rI:"Investeerder",rP:"Projecteigenaar",rB:"Investeerder en projecteigenaar",roleAll:"Alle businessprofielen",view:"Profiel bekijken",
+cofBtn:"Trakteer me op een koffie",cofT:"Deze app is 100 % gratis",cofD:"Is ze nuttig voor jou? Trakteer me op een koffie om de ontwikkeling te steunen.",cofSoon:"De donatielink komt binnenkort.",
+local:"Lokale modus: je gegevens blijven op dit toestel (gedeelde gids niet verbonden)."},
+de:{h1a:"DAS MAROKKANISCHE ÖKOSYSTEM",h1b:"WELTWEIT.",hsub:"Dein internationales Kontaktbuch: finde mit einem Klick den richtigen Profi am richtigen Ort.",
+nBiz:"Business",bizT:"Moroccan Business",bizSub:"Marokkanische Unternehmer und Investoren weltweit: Ehrgeiz in konkrete Chancen in Marokko verwandeln.",
+bizGetT:"Was du bekommen kannst",bizG1:"Direkter Zugang zu Kontakten und Projekten der marokkanischen Diaspora: mögliche Partner und Unternehmer in Marokko.",bizG2:"Sofortige Sichtbarkeit dank des Ökosystems der Marokkaner im Ausland.",
+bizIT:"Du willst investieren?",bizID:"Investiere, lass dich nieder oder wachse im Königreich: triff Projektträger und Partner.",
+bizPT:"MRE mit einem Projekt?",bizPD:"MRE-Unternehmer mit einem durchdachten Projekt in Marokko? Stelle es dem Kollektiv vor und lerne Menschen kennen, die dir bei der Umsetzung helfen können.",
+bizSeeI:"Investoren ansehen ({n})",bizSeeP:"Projekte ansehen ({n})",bizDisc:"MRE Connect vernetzt Menschen. Es ist weder Finanz- noch Rechtsberatung: Prüfe deine Partner immer, bevor du dich verpflichtest.",bizCta:"Moroccan Business beitreten",
+fRole:"Mein Business-Profil",rN:"Fachperson / Privatperson",rI:"Investor",rP:"Projektträger",rB:"Investor und Projektträger",roleAll:"Alle Business-Profile",view:"Profil ansehen",
+cofBtn:"Spendiere mir einen Kaffee",cofT:"Diese App ist zu 100 % kostenlos",cofD:"Hilft sie dir? Spendiere mir einen kleinen Kaffee, um die Weiterentwicklung zu unterstützen.",cofSoon:"Der Spendenlink kommt bald.",
+local:"Lokaler Modus: Deine Daten bleiben auf diesem Gerät (gemeinsames Verzeichnis nicht verbunden)."},
+ar:{h1a:"المنظومة المغربية",h1b:"عبر العالم.",hsub:"دفتر عناوينك الدولي: اعثر على المهني المناسب، في المكان المناسب، بنقرة واحدة.",
+nBiz:"الأعمال",bizT:"Moroccan Business",bizSub:"مقاولون ومستثمرون مغاربة من كل أنحاء العالم: لتحويل الطموح إلى فرصة ملموسة في المغرب.",
+bizGetT:"ما يمكنك الحصول عليه",bizG1:"وصول مباشر إلى جهات اتصال ومشاريع من الجالية المغربية: شركاء محتملون ومقاولون في المغرب.",bizG2:"حضور فوري بفضل منظومة المغاربة المقيمين بالخارج.",
+bizIT:"هل تريد الاستثمار؟",bizID:"استثمر أو استقر أو توسّع في المملكة: تعرّف على حاملي المشاريع والشركاء.",
+bizPT:"مغربي مقيم بالخارج ولديك مشروع؟",bizPD:"مقاول مغربي مقيم بالخارج لديك مشروع منظم تريد تطويره في المغرب؟ قدّمه للتجمع والتقِ بمن يستطيع مساعدتك على إنجازه.",
+bizSeeI:"عرض المستثمرين ({n})",bizSeeP:"عرض المشاريع ({n})",bizDisc:"MRE Connect يربط بين الأشخاص فقط. وهو ليس استشارة مالية ولا قانونية: تحقق دائمًا من شركائك قبل الالتزام.",bizCta:"انضم إلى Moroccan Business",
+fRole:"ملفي في الأعمال",rN:"مهني / فرد",rI:"مستثمر",rP:"حامل مشروع",rB:"مستثمر وحامل مشروع",roleAll:"كل ملفات الأعمال",view:"عرض الملف",
+cofBtn:"اشترِ لي قهوة",cofT:"هذا التطبيق مجاني 100%",cofD:"هل هو مفيد لك؟ اشترِ لي قهوة صغيرة لدعم تطويره.",cofSoon:"رابط التبرع قريبًا.",
+local:"الوضع المحلي: تبقى بياناتك على هذا الجهاز (الدليل المشترك غير متصل)."}
+};
+ADD.nlbe=Object.assign({},ADD.nl,{hsub:"Jouw internationaal adresboek: vind met één klik de juiste vakman op de juiste plek."});
+Object.keys(ADD).forEach(function(k){Object.assign(L[k],ADD[k])});
+var ORDER=["fr","nlbe","nl","en","es","pt","it","de","ar"];
+var LOC={nlbe:"nl-BE"};
+
+/* ================= icônes (traits fins, style lucide) ================= */
+var P={
+leaf:'<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>',
+factory:'<path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1"/><path d="M12 18h1"/><path d="M7 18h1"/>',
+cart:'<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+cpu:'<rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"/>',
+build:'<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4M10 10h4M10 14h4M10 18h4"/>',
+trend:'<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+plane:'<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
+truck:'<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
+bulb:'<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
+shake:'<path d="m11 17 2 2a1 1 0 1 0 3-3"/><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"/><path d="m21 3 1 11h-2"/><path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3"/><path d="M3 4h8"/>',
+heart:'<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
+cross:'<path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/>',
+grad:'<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',
+land:'<line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/>',
+wrench:'<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+spark:'<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/>',
+flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+car:'<path d="M3 13l2-5a2 2 0 0 1 2-1h10a2 2 0 0 1 2 1l2 5v4H3z"/><circle cx="7.5" cy="17" r="1.5"/><circle cx="16.5" cy="17" r="1.5"/>',
+zap:'<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>',
+dots:'<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>',
+sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2m-7.07-17.07 1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+wind:'<path d="M12.8 19.6A2 2 0 1 0 14 16H2"/><path d="M17.5 8a2.5 2.5 0 1 1 2 4H2"/><path d="M9.8 4.4A2 2 0 1 1 11 8H2"/>',
+batt:'<rect width="16" height="10" x="2" y="7" rx="2"/><line x1="22" x2="22" y1="11" y2="13"/>',
+users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+cup:'<path d="M10 2v2M14 2v2M6 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/>',
+brief:'<path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/>',
+home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
+grid:'<path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/>',
+user:'<circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+arrow:'<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+left:'<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>'
+};
+function ic(n,s){return '<svg width="'+(s||20)+'" height="'+(s||20)+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+P[n]+'</svg>'}
+var PI={agri:"leaf",industrie:"factory",commerce:"cart",tech:"cpu",btp:"build",finance:"trend",tourisme:"plane",logistique:"truck",startup:"bulb",services:"shake",associatif:"heart",sante:"cross",education:"grad",juridique:"land",artisanat:"wrench",beaute:"spark",restauration:"flame",auto:"car",energie:"zap",autre:"dots"};
+
+/* ================= état ================= */
+var lang="fr",profiles=[],votes=[],db=null,uid=null,isAdmin=false,mode="local",mineId="me",view={p:"home"},stack=[],armed=false,fQ="",fD="",fC="",fR="",B=null,rendering=false;
+var $=function(i){return document.getElementById(i)};
+function t(k){return L[lang][k]!=null?L[lang][k]:L.fr[k]}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function pName(k){var i=PK.indexOf(k);return i<0?k:t("d")[i]}
+function cName(c){if(c==="OTHER")return t("other");try{return new Intl.DisplayNames([LOC[lang]||lang],{type:"region"}).of(c)||c}catch(e){return c}}
+function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){}return null}
+var tt;function toast(m){var el=$("toast");el.textContent=m;el.classList.add("on");clearTimeout(tt);tt=setTimeout(function(){el.classList.remove("on")},2600)}
+function mine(){return profiles.filter(function(p){return p.id===mineId})[0]}
+function byId(id){return profiles.filter(function(p){return p.id===id})[0]}
+function digits(p){return String(p||"").replace(/[^0-9]/g,"").replace(/^00/,"")}
+function initials(p){return ((p.first||"?").charAt(0)+(p.last||"").charAt(0)).toUpperCase()}
+function countriesWith(){var o={};profiles.forEach(function(p){if(p.country&&p.country!=="OTHER")o[p.country]=(o[p.country]||0)+1});return o}
+
+/* ================= globe 3D ================= */
+var G={canvas:null,ctx:null,dots:[],cities:[],lat0:30,lon0:-8,drag:false,lx:0,ly:0,vx:0,running:false,w:0,h:0,dpr:1,t0:0};
+var POLY=[
+/* Amérique du Nord */[[-168,66],[-141,70],[-110,72],[-82,70],[-62,60],[-55,50],[-66,44],[-76,36],[-81,26],[-84,30],[-97,27],[-97,19],[-88,21],[-87,15],[-83,9],[-78,8],[-86,13],[-94,16],[-105,20],[-110,24],[-112,30],[-117,32],[-124,40],[-124,48],[-135,58],[-152,60],[-165,55]],
+/* Groenland */[[-55,60],[-45,60],[-20,70],[-20,80],[-60,82],[-70,76],[-55,70]],
+/* Amérique du Sud */[[-78,8],[-72,12],[-62,10],[-52,5],[-50,0],[-35,-6],[-39,-14],[-41,-22],[-48,-26],[-58,-35],[-65,-42],[-68,-52],[-73,-52],[-74,-42],[-71,-30],[-70,-18],[-76,-14],[-81,-5],[-80,0]],
+/* Eurasie */[[-9,37],[-9,43],[-2,43.5],[-1,46],[-4.5,48.5],[2,51],[5,53],[8,54],[8.5,57.5],[10.5,57],[10,54.5],[14,54],[21,55],[24,58],[28,60],[24,65],[22,66],[18,63],[17,60],[13,56],[11,59],[5,59],[5,62],[14,68],[22,71],[30,71],[40,68],[60,69],[70,73],[100,77],[115,74],[140,72],[160,70],[180,68],[178,64],[165,60],[155,57],[142,53],[140,48],[135,43],[130,42],[126,37],[126,34],[122,40],[118,38],[121,31],[119,25],[110,21],[108,17],[109,12],[105,9],[101,13],[100,8],[103,2],[98,8],[98,16],[92,20],[88,22],[80,15],[78,8],[73,16],[72,21],[67,24],[57,25],[56,27],[50,30],[48,29],[51,25],[56,26],[59,22],[52,16],[43,13],[39,21],[35,28],[34,31],[36,36],[27,37],[26,40],[23,40],[24,38],[22,37],[19,41],[14,45],[12,45],[16,38],[12,42],[9,44],[3,43],[0,39],[-5,36]],
+/* Afrique */[[-17,21],[-13,28],[-10,30],[-6,36],[10,37],[11,33],[20,31],[32,31],[34,28],[38,20],[43,12],[51,12],[41,-2],[40,-10],[35,-24],[32,-29],[26,-34],[18,-34],[12,-18],[13,-8],[9,-1],[9,4],[-8,4],[-15,11],[-17,15]],
+/* Australie */[[114,-22],[122,-18],[130,-12],[137,-12],[142,-11],[146,-19],[153,-26],[150,-37],[141,-38],[130,-32],[115,-34]],
+/* Royaume-Uni */[[-5,50],[1,51],[2,53],[-2,56],[-5,58],[-6,56],[-3,54],[-5,52]],
+/* Irlande */[[-10,52],[-6,52],[-6,55],[-10,54]],
+/* Japon */[[130,31],[140,36],[142,42],[140,41],[135,34]]
+];
+function inPoly(lon,lat,pl){var c=false;for(var i=0,j=pl.length-1;i<pl.length;j=i++){var xi=pl[i][0],yi=pl[i][1],xj=pl[j][0],yj=pl[j][1];if(((yi>lat)!==(yj>lat))&&(lon<(xj-xi)*(lat-yi)/(yj-yi)+xi))c=!c}return c}
+function land(lon,lat){for(var i=0;i<POLY.length;i++)if(inPoly(lon,lat,POLY[i]))return true;return false}
+var R2D=Math.PI/180;
+function v3(lat,lon){var a=lat*R2D,o=lon*R2D;return [Math.cos(a)*Math.sin(o),Math.sin(a),Math.cos(a)*Math.cos(o)]}
+/* villes : [nom, lat, lon, code pays] */
+var CITIES=[["Casablanca",33.6,-7.6,"MA"],["Rabat",34,-6.8,"MA"],["Marrakech",31.6,-8,"MA"],["Tanger",35.8,-5.8,"MA"],["Agadir",30.4,-9.6,"MA"],["Fès",34,-5,"MA"],
+["Paris",48.9,2.3,"FR"],["Lyon",45.8,4.8,"FR"],["Marseille",43.3,5.4,"FR"],["Lille",50.6,3.1,"FR"],["Bordeaux",44.8,-0.6,"FR"],
+["Bruxelles",50.8,4.4,"BE"],["Anvers",51.2,4.4,"BE"],["Amsterdam",52.4,4.9,"NL"],["Rotterdam",51.9,4.5,"NL"],
+["Madrid",40.4,-3.7,"ES"],["Barcelone",41.4,2.2,"ES"],["Lisbonne",38.7,-9.1,"PT"],["Milan",45.5,9.2,"IT"],["Rome",41.9,12.5,"IT"],
+["Berlin",52.5,13.4,"DE"],["Francfort",50.1,8.7,"DE"],["Genève",46.2,6.1,"CH"],["Luxembourg",49.6,6.1,"LU"],["Londres",51.5,-0.1,"GB"],
+["Montréal",45.5,-73.6,"CA"],["New York",40.7,-74,"US"],["Dubaï",25.2,55.3,"AE"],["Dakar",14.7,-17.4,"X"],["Abidjan",5.3,-4,"X"],["Le Caire",30,31.2,"X"]];
+function buildGlobe(){
+  G.dots=[];
+  for(var lat=-58;lat<=80;lat+=2.7){var step=2.7/Math.max(.22,Math.cos(lat*R2D));
+    for(var lon=-180;lon<180;lon+=step){if(land(lon,lat)){var v=v3(lat,lon);G.dots.push({x:v[0],y:v[1],z:v[2],ph:Math.random()*6.28,g:Math.random()<.07})}}}
+  G.cities=CITIES.map(function(c,i){var v=v3(c[1],c[2]);return {n:c[0],lat:c[1],lon:c[2],cc:c[3],v:v,off:(i*0.137)%1,hub:c[0]==="Casablanca"}});
+}
+function rotv(v,a,b){
+  var ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(b),sb=Math.sin(b);
+  var x1=v[0]*ca+v[2]*sa,z1=-v[0]*sa+v[2]*ca,y2=v[1]*cb-z1*sb,z2=v[1]*sb+z1*cb;return [x1,y2,z2]}
+function slerp(a,b,f){
+  var d=Math.max(-1,Math.min(1,a[0]*b[0]+a[1]*b[1]+a[2]*b[2])),w=Math.acos(d),s=Math.sin(w)||1;
+  var k1=Math.sin((1-f)*w)/s,k2=Math.sin(f*w)/s;return [a[0]*k1+b[0]*k2,a[1]*k1+b[1]*k2,a[2]*k1+b[2]*k2,w]}
+function sizeGlobe(){
+  var host=$("globeHost");if(!host||!G.canvas)return;
+  var r=host.getBoundingClientRect();G.dpr=Math.min(window.devicePixelRatio||1,2);
+  G.w=Math.max(200,Math.round(r.width));G.h=Math.max(200,Math.round(r.height));
+  G.canvas.width=G.w*G.dpr;G.canvas.height=G.h*G.dpr;
+}
+function drawGlobe(now){
+  if(!G.running)return;
+  var c=G.ctx,w=G.w,h=G.h,dpr=G.dpr,tm=now/1000;
+  c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);
+  var R=Math.min(w,h)*.42,cx=w/2,cy=h/2;
+  if(!G.drag){G.lon0+=.05+G.vx;G.vx*=.95}
+  var a=-G.lon0*R2D,b=G.lat0*R2D;
+  /* halo + sphère */
+  var halo=c.createRadialGradient(cx,cy,R*.95,cx,cy,R*1.22);halo.addColorStop(0,"rgba(212,175,55,.22)");halo.addColorStop(1,"rgba(212,175,55,0)");
+  c.fillStyle=halo;c.beginPath();c.arc(cx,cy,R*1.22,0,6.2832);c.fill();
+  var sg=c.createRadialGradient(cx-R*.3,cy-R*.35,R*.1,cx,cy,R);sg.addColorStop(0,"#1a2a5c");sg.addColorStop(1,"#080d1f");
+  c.fillStyle=sg;c.beginPath();c.arc(cx,cy,R,0,6.2832);c.fill();
+  c.strokeStyle="rgba(243,215,117,.35)";c.lineWidth=1;c.stroke();
+  /* points de terre */
+  var D=G.dots,i,p,r;
+  for(i=0;i<D.length;i++){
+    var d=D[i];r=rotv([d.x,d.y,d.z],a,b);if(r[2]<=0)continue;
+    var al=.12+.5*r[2],sz=1.5;
+    if(d.g){var tw=.5+.5*Math.sin(tm*1.3+d.ph);al=.15+.85*tw;sz=2.1;c.fillStyle="rgba(243,215,117,"+al.toFixed(2)+")"}
+    else c.fillStyle="rgba(150,170,225,"+al.toFixed(2)+")";
+    c.fillRect(cx+r[0]*R-sz/2,cy-r[1]*R-sz/2,sz,sz);
+  }
+  /* arcs et pulsations vers le Maroc */
+  var hub=G.cities[0],act=countriesWith(),cs=G.cities;
+  for(i=1;i<cs.length;i++){
+    var ct=cs[i];if(ct.cc==="MA")continue;
+    var on=!!act[ct.cc];
+    c.beginPath();var started=false;
+    for(var s=0;s<=28;s++){
+      var f=s/28,m=slerp(ct.v,hub.v,f),lift=1+.16*Math.sin(Math.PI*f)*(m[3]/3.14+.25),q=rotv([m[0]*lift,m[1]*lift,m[2]*lift],a,b);
+      if(q[2]<-.02){started=false;continue}
+      var sx=cx+q[0]*R,sy=cy-q[1]*R;if(!started){c.moveTo(sx,sy);started=true}else c.lineTo(sx,sy)}
+    c.strokeStyle=on?"rgba(243,215,117,.5)":"rgba(212,175,55,.16)";c.lineWidth=on?1.2:.8;c.stroke();
+    var ff=(tm*.18+ct.off)%1,mm=slerp(ct.v,hub.v,ff),lf=1+.16*Math.sin(Math.PI*ff)*(mm[3]/3.14+.25),qq=rotv([mm[0]*lf,mm[1]*lf,mm[2]*lf],a,b);
+    if(qq[2]>0){c.fillStyle=on?"rgba(255,244,200,.95)":"rgba(243,215,117,.6)";c.beginPath();c.arc(cx+qq[0]*R,cy-qq[1]*R,on?2.2:1.5,0,6.2832);c.fill()}
+  }
+  /* villes : LED qui s'allument et s'éteignent */
+  for(i=0;i<cs.length;i++){
+    var ci=cs[i];r=rotv(ci.v,a,b);if(r[2]<=0.02)continue;
+    var px=cx+r[0]*R,py=cy-r[1]*R,pulse=.5+.5*Math.sin(tm*1.6+ci.off*12),isOn=ci.cc==="MA"||!!act[ci.cc];
+    var rad=ci.hub?6.5:(isOn?4.4:2.8);
+    c.fillStyle=(ci.cc==="MA")?"rgba(255,90,100,"+(.12+.2*pulse)+")":"rgba(243,215,117,"+((isOn?.16:.08)+.2*pulse)+")";
+    c.beginPath();c.arc(px,py,rad*(2+pulse),0,6.2832);c.fill();
+    c.fillStyle=(ci.cc==="MA")?"#ff6a78":(isOn?"#fff4c8":"#d4af37");c.beginPath();c.arc(px,py,rad*.55,0,6.2832);c.fill();
+    if(ci.hub||(isOn&&r[2]>.4&&ci.cc!=="MA")){c.font="600 10px "+getComputedStyle(document.body).fontFamily;c.fillStyle="rgba(238,242,255,.85)";c.fillText(ci.n,px+rad+3,py+3)}
+  }
+  requestAnimationFrame(drawGlobe);
+}
+function startGlobe(){
+  var host=$("globeHost");if(!host)return;
+  if(!G.canvas){
+    G.canvas=document.createElement("canvas");G.canvas.id="globe";G.ctx=G.canvas.getContext("2d");buildGlobe();
+    var pid=null;
+    G.canvas.addEventListener("pointerdown",function(e){G.drag=true;G.lx=e.clientX;G.ly=e.clientY;G.vx=0;try{G.canvas.setPointerCapture(e.pointerId)}catch(x){}});
+    G.canvas.addEventListener("pointermove",function(e){if(!G.drag)return;var dx=e.clientX-G.lx,dy=e.clientY-G.ly;G.lx=e.clientX;G.ly=e.clientY;G.lon0-=dx*.45;G.vx=-dx*.012;G.lat0=Math.max(-70,Math.min(70,G.lat0+dy*.3))});
+    var up=function(){G.drag=false};G.canvas.addEventListener("pointerup",up);G.canvas.addEventListener("pointercancel",up);
+  }
+  host.innerHTML="";host.appendChild(G.canvas);sizeGlobe();
+  if(!G.running){G.running=true;requestAnimationFrame(drawGlobe)}
+}
+function stopGlobe(){G.running=false}
+window.addEventListener("resize",function(){if(G.running)sizeGlobe()});
+document.addEventListener("visibilitychange",function(){if(document.hidden)G.running=false;else if(view.p==="home"&&$("globeHost")){G.running=true;requestAnimationFrame(drawGlobe)}});
+
+/* ================= pages ================= */
+function ledDots(){var s="";for(var i=0;i<22;i++)s+='<s style="left:'+((i*37+11)%100)+'%;top:'+((i*53+7)%100)+'%;animation-delay:'+((i*.37)%4).toFixed(2)+'s;animation-duration:'+(3+(i%4)).toFixed(1)+'s"></s>';return s}
+function poleTile(k){
+  var n=profiles.filter(function(p){return p.domain===k}).length;
+  return '<button class="pole" data-go="pole" data-a="'+k+'"><span class="ico">'+ic(PI[k],20)+'</span><b>'+esc(pName(k))+'</b><span>'+esc(t("nMem").replace("{n}",n))+'</span></button>'}
+function roleTag(p){var m={investor:"rI",project:"rP",both:"rB"};return m[p.role]?'<span class="tag" style="margin-top:6px;display:inline-block;border-color:rgba(255,255,255,.28);color:#fff;background:rgba(255,255,255,.08)">'+esc(t(m[p.role]))+'</span>':''}
+function memCard(p){
+  return '<button class="mem" data-go="fiche" data-a="'+esc(p.id)+'"><div class="mt"><div class="av">'+esc(initials(p))+'</div><div style="min-width:0"><div class="nm">'+esc(p.first)+' '+esc(p.last)+'</div><div class="loc">'+esc(p.city)+' · '+esc(cName(p.country))+'</div></div></div>'
+   +'<span class="tag">'+esc(pName(p.domain))+'</span>'+roleTag(p)+((p.biz||p.skills)?'<div class="sk">'+esc(p.biz||p.skills)+'</div>':'')+'<span class="open">'+esc(t("view"))+' <i class="arr">→</i></span></button>'}
+function emptyBlock(){return '<div class="empty"><strong>'+esc(t("emptyT"))+'</strong>'+esc(t("emptyD"))+'<br><button class="cta" data-go="form">'+esc(t("join"))+ic("arrow",16)+'</button></div>'}
+
+function pageHome(){
+  var act=Object.keys(countriesWith()).length,vs=t("vals").map(function(v){return '<span>'+esc(v)+'</span>'}).join("");
+  var firstPoles=PK.slice(0,8).map(poleTile).join("");
+  return '<section class="hero"><div class="leds">'+ledDots()+'</div>'
+  +'<span class="pill"><s></s>'+esc(t("pill"))+'</span>'
+  +'<h1 class="h1">'+esc(t("h1a"))+'<em>'+esc(t("h1b"))+'</em></h1><p class="lead">'+esc(t("hsub"))+'</p>'
+  +'<div class="row"><button class="cta" data-go="form">'+esc(t("join"))+ic("arrow",18)+'</button><button class="ghost" data-go="dir">'+esc(t("explore"))+'</button></div>'
+  +'<div class="vals">'+vs+'</div></section>'
+  +'<section class="glass globeCard"><div class="gtop"><div class="flag"><i>★</i><div>MRE · MONDE<small>'+esc(t("flagSub"))+'</small></div></div><span class="live"><s></s>'+esc(t("live"))+'</span></div>'
+  +'<div id="globeHost"></div><div class="ghint">'+esc(t("drag"))+'</div>'
+  +'<div class="stats"><div class="stat"><b>'+profiles.length+'</b><span>'+esc(t("stM"))+'</span></div><div class="stat"><b>'+act+'</b><span>'+esc(t("stC"))+'</span></div><div class="stat"><b>'+PK.length+'</b><span>'+esc(t("stP"))+'</span></div></div>'
+  +'<p class="ghint">'+esc(t("legend"))+'</p></section>'
+  +'<div class="band"><h2>'+esc(t("tag"))+'</h2><p>'+esc(t("tog"))+' '+esc(t("net"))+'</p></div>'
+  +'<section class="sec"><div class="sh"><div><h2>'+esc(t("polesT"))+'</h2><p>'+esc(t("polesS"))+'</p></div><button class="more" data-go="poles">'+esc(t("all"))+' <i class="arr">→</i></button></div><div class="poles">'+firstPoles+'</div></section>'
+  +'<section class="sec"><div class="glass promo"><span class="pill"><s></s>MOROCCAN BUSINESS</span><h2>'+esc(t("bizSub"))+'</h2><div class="row"><button class="cta" data-go="biz">'+esc(t("bizT"))+ic("arrow",18)+'</button></div></div></section>'
+  +'<section class="sec"><div class="glass promo"><h2>'+esc(t("pollT"))+'</h2><p>'+esc(t("pollQ"))+'</p><div class="row"><button class="cta" data-go="poll">'+esc(t("nPoll"))+ic("arrow",18)+'</button></div></div></section>'
+  +'<section class="sec"><div class="glass promo"><h2>'+esc(t("enT"))+'</h2><p>'+esc(t("enS"))+'</p><div class="row"><button class="ghost" data-go="energy">'+esc(t("enQ"))+'</button></div></div></section>'
+  +'<section class="sec"><div class="glass promo"><h2>'+esc(t("askA"))+' <em>'+esc(t("askB"))+'</em></h2><p>'+esc(t("askS"))+'</p><div class="row"><button class="cta" data-go="form">'+esc(t("askCta"))+ic("arrow",18)+'</button></div></div></section>'
+  +footer();
+}
+function coffeeBlock(){
+  var inner=PAYPAL_URL?'<a class="cta" target="_blank" rel="noopener noreferrer" href="'+esc(PAYPAL_URL)+'">'+ic("cup",18)+esc(t("cofBtn"))+'</a>':'<button class="cta" data-soon="1">'+ic("cup",18)+esc(t("cofBtn"))+'</button>';
+  return '<section class="sec"><div class="glass coffee"><h2 class="serif" style="font-size:1.6rem">'+esc(t("cofT"))+'</h2><p style="color:var(--dim);max-width:46ch">'+esc(t("cofD"))+'</p>'+inner+'</div></section>'}
+function footer(){return coffeeBlock()+'<footer><b>'+esc(t("tag"))+'</b><p>'+esc(t("vals").join(" · "))+'</p></footer>'}
+
+function pageDir(){
+  var q=fQ.toLowerCase().trim();
+  var base=profiles.filter(function(p){
+    if(fC&&p.country!==fC)return false;
+    if(fR&&!(p.role===fR||p.role==="both"))return false;
+    if(q){var hay=(p.first+" "+p.last+" "+p.city+" "+p.biz+" "+p.seek+" "+p.skills+" "+pName(p.domain)+" "+cName(p.country)).toLowerCase();if(hay.indexOf(q)<0)return false}
+    return true});
+  var counts={};base.forEach(function(p){counts[p.domain]=(counts[p.domain]||0)+1});
+  var rail='<button class="chip" data-d="" aria-pressed="'+(fD===""?"true":"false")+'">'+esc(t("allD"))+'<b>'+base.length+'</b></button>';
+  PK.forEach(function(k){if(counts[k]||fD===k)rail+='<button class="chip" data-d="'+k+'" aria-pressed="'+(fD===k?"true":"false")+'">'+esc(pName(k))+'<b>'+(counts[k]||0)+'</b></button>'});
+  var list=base.filter(function(p){return !fD||p.domain===fD}).sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0)});
+  var co='<option value="">'+esc(t("allC"))+'</option>'+CC.map(function(c){return '<option value="'+c+'"'+(fC===c?" selected":"")+'>'+esc(cName(c))+'</option>'}).join("");
+  var rol='<option value="">'+esc(t("roleAll"))+'</option><option value="investor"'+(fR==="investor"?" selected":"")+'>'+esc(t("rI"))+'</option><option value="project"'+(fR==="project"?" selected":"")+'>'+esc(t("rP"))+'</option>';
+  return '<section class="sec" style="margin-top:6px"><div class="sh"><div><h2>'+esc(t("dirT"))+'</h2><p>'+esc(t("dirS"))+'</p></div><button class="cta" data-go="form">'+esc(mine()?t("nMe"):t("join"))+'</button></div>'
+   +'<div class="tools"><input id="q" type="search" autocomplete="off" value="'+esc(fQ)+'" placeholder="'+esc(t("search"))+'"><select id="fc" class="sel" style="border-radius:14px;padding:.8rem 1rem;font-weight:500">'+co+'</select><select id="fr" class="sel" style="border-radius:14px;padding:.8rem 1rem;font-weight:500">'+rol+'</select></div>'
+   +'<div class="rail">'+rail+'</div><p style="color:var(--dim);font-size:.8rem">'+esc(t("cnt").replace("{n}",list.length))+'</p>'
+   +'<div class="cards">'+(!profiles.length?emptyBlock():(list.length?list.map(memCard).join(""):'<div class="empty">'+esc(t("none"))+'</div>'))+'</div></section>';
+}
+function pageFiche(id){
+  var p=byId(id);if(!p)return '<button class="back" data-back="1">'+ic("left",16)+esc(t("back"))+'</button><div class="empty">'+esc(t("none"))+'</div>';
+  var wa=digits(p.phone);
+  function blk(l,v){return v?'<div class="blk"><small>'+esc(l)+'</small><p>'+esc(v)+'</p></div>':''}
+  return '<button class="back" data-back="1">'+ic("left",16)+esc(t("back"))+'</button><article class="glass fiche">'
+   +'<div class="fh"><div class="av big">'+esc(initials(p))+'</div><div style="min-width:0"><h2>'+esc(p.first)+' '+esc(p.last)+'</h2><div class="loc">'+esc(p.city)+' · '+esc(cName(p.country))+'</div><span class="tag" style="margin-top:8px;display:inline-block">'+esc(pName(p.domain))+'</span>'+roleTag(p)+'</div></div>'
+   +blk(t("bizL"),p.biz)+blk(t("seekL"),p.seek)+blk(t("skillsL"),p.skills)
+   +'<div class="blk"><small>'+esc(t("contactL"))+'</small><div class="ct"><span>'+esc(p.phone)+'</span><button class="mini" data-copy="'+esc(p.phone)+'">'+esc(t("copy"))+'</button></div>'
+   +(p.email?'<div class="ct" style="margin-top:6px"><span>'+esc(p.email)+'</span><button class="mini" data-copy="'+esc(p.email)+'">'+esc(t("copy"))+'</button></div>':'')+'</div>'
+   +'<div class="row">'+(wa?'<a class="cta" target="_blank" rel="noopener noreferrer" href="https://wa.me/'+wa+'">'+esc(t("wa"))+ic("arrow",18)+'</a>':'')
+   +(p.id===mineId?'<button class="ghost" data-go="form">'+esc(t("editT"))+'</button>':'')
+   +(isAdmin&&p.id!==mineId&&mode==="shared"?'<button class="ghost danger" data-rm="'+esc(p.id)+'">'+esc(armed===p.id?t("delSure"):t("rm"))+'</button>':'')+'</div></article>';
+}
+function pageBiz(){
+  var ni=profiles.filter(function(p){return p.role==="investor"||p.role==="both"}).length,np=profiles.filter(function(p){return p.role==="project"||p.role==="both"}).length;
+  return '<section class="sec" style="margin-top:6px"><div class="glass promo"><span class="pill"><s></s>'+esc(t("bizT")).toUpperCase()+'</span><h2>'+esc(t("bizSub"))+'</h2></div>'
+   +'<div class="sh"><h2 style="font-size:1.6rem">'+esc(t("bizGetT"))+'</h2></div>'
+   +'<div class="glass bzr"><span class="ib">'+ic("users",22)+'</span><p>'+esc(t("bizG1"))+'</p></div>'
+   +'<div class="glass bzr"><span class="ib">'+ic("spark",22)+'</span><p>'+esc(t("bizG2"))+'</p></div>'
+   +'<div class="bzg"><div class="glass bz"><span class="ib">'+ic("trend",22)+'</span><h3>'+esc(t("bizIT"))+'</h3><p>'+esc(t("bizID"))+'</p><div class="row"><button class="ghost" data-go="dir" data-role="investor">'+esc(t("bizSeeI").replace("{n}",ni))+'</button></div></div>'
+   +'<div class="glass bz"><span class="ib">'+ic("bulb",22)+'</span><h3>'+esc(t("bizPT"))+'</h3><p>'+esc(t("bizPD"))+'</p><div class="row"><button class="ghost" data-go="dir" data-role="project">'+esc(t("bizSeeP").replace("{n}",np))+'</button></div></div></div>'
+   +'<div class="row"><button class="cta" data-go="form" data-pre="services">'+esc(t("bizCta"))+ic("arrow",18)+'</button></div>'
+   +'<p class="disc">'+esc(t("bizDisc"))+'</p></section>'+footer();
+}
+function pagePoles(){
+  return '<section class="sec" style="margin-top:6px"><div class="sh"><div><h2>'+esc(t("polesT"))+'</h2><p>'+esc(t("polesS"))+'</p></div></div><div class="poles">'+PK.map(poleTile).join("")+'</div></section>'
+   +'<section class="sec"><div class="glass promo"><h2>'+esc(t("pollT"))+'</h2><p>'+esc(t("pollQ"))+'</p><div class="row"><button class="cta" data-go="poll">'+esc(t("nPoll"))+ic("arrow",18)+'</button></div></div></section>';
+}
+function pagePole(k){
+  var list=profiles.filter(function(p){return p.domain===k}).sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0)});
+  return '<button class="back" data-back="1">'+ic("left",16)+esc(t("back"))+'</button>'
+   +'<section class="glass promo"><span class="ico" style="width:54px;height:54px;border-radius:50%;display:grid;place-items:center;color:var(--gold);background:var(--goldDim);border:1px solid var(--line);animation:breatheSoft 4s ease-in-out infinite alternate">'+ic(PI[k],26)+'</span><h2>'+esc(pName(k))+'</h2><p>'+esc(t("nMem").replace("{n}",list.length))+'</p>'
+   +(k==="energie"?'<div class="row"><button class="ghost" data-go="energy">'+esc(t("enT"))+'</button></div>':'')+'</section>'
+   +'<section class="sec"><div class="cards">'+(list.length?list.map(memCard).join(""):'<div class="empty"><strong>'+esc(t("noMem"))+'</strong><button class="cta" data-go="form" data-pre="'+k+'">'+esc(t("beFirst"))+ic("arrow",16)+'</button></div>')+'</div></section>';
+}
+function pagePoll(){
+  var cnt={A:0,B:0,C:0,D:0},tot=0;votes.forEach(function(v){if(cnt[v.choice]!=null){cnt[v.choice]++;tot++}});
+  var my=myVote();
+  var opts=["A","B","C","D"].map(function(k){var pc=tot?Math.round(cnt[k]/tot*100):0;
+    return '<button class="opt o'+k+'" data-vote="'+k+'" aria-pressed="'+(my===k?"true":"false")+'"><span class="bar" style="width:'+pc+'%"></span><span class="l">'+k+'</span><span class="t">'+esc(t("p"+k))+'</span><span class="p">'+pc+'%</span></button>'}).join("");
+  return '<section class="sec" style="margin-top:6px"><div class="glass promo"><h2>'+esc(t("pollT"))+'</h2><p>'+esc(t("pollS"))+'</p></div>'
+   +'<div class="sh"><h2 style="font-size:1.5rem">'+esc(t("pollQ"))+'</h2></div><div class="opts">'+opts+'</div>'
+   +'<p style="color:var(--dim);font-size:.82rem">'+esc(my?t("voted"):t("vote"))+' · '+esc(t("votes").replace("{n}",tot))+'</p></section>'+footer();
+}
+function pageEnergy(){
+  var list=profiles.filter(function(p){return p.domain==="energie"});
+  var tiles=[["sun","enSolar"],["wind","enWind"],["batt","enStore"],["wrench","enInst"],["trend","enInv"]].map(function(x){return '<div class="etile"><span class="ico">'+ic(x[0],20)+'</span>'+esc(t(x[1]))+'</div>'}).join("");
+  return '<button class="back" data-back="1">'+ic("left",16)+esc(t("back"))+'</button><section class="glass promo"><span class="pill"><s></s>ENERGIES · MAROC 2030</span><h2>'+esc(t("enT"))+'</h2><p>'+esc(t("enS"))+'</p><div class="etiles">'+tiles+'</div><div class="fact">'+esc(t("enFact"))+'</div>'
+   +'<div class="row"><button class="cta" data-go="form" data-pre="energie">'+esc(t("enQ"))+ic("arrow",18)+'</button></div></section>'
+   +'<section class="sec"><div class="sh"><h2 style="font-size:1.6rem">'+esc(t("enMem"))+'</h2></div><div class="cards">'+(list.length?list.map(memCard).join(""):'<div class="empty">'+esc(t("noMem"))+'</div>')+'</div></section>';
+}
+
+/* ================= navigation ================= */
+var TOP={home:"home",dir:"dir",poles:"poles",poll:"poll",form:"me"};
+function renderNav(){
+  var items=[["home","home","nHome"],["dir","users","nDir"],["poles","grid","nPoles"],["biz","brief","nBiz"],["form","user","nMe"]];
+  var cur=view.p==="fiche"?"dir":(view.p==="pole"||view.p==="energy"?"poles":view.p);
+  $("nav").innerHTML=items.map(function(i){return '<button data-nav="'+i[0]+'"'+(cur===i[0]?' aria-current="page"':'')+'>'+ic(i[1],21)+'<span>'+esc(t(i[2]))+'</span></button>'}).join("");
+}
+function render(){
+  if(rendering)return;rendering=true;
+  var v=$("view"),f=$("formView");
+  if(view.p==="form"){stopGlobe();v.hidden=true;f.hidden=false;renderForm()}
+  else{
+    f.hidden=true;v.hidden=false;
+    var h="";
+    if(view.p==="home")h=pageHome();else if(view.p==="dir")h=pageDir();else if(view.p==="fiche")h=pageFiche(view.a);
+    else if(view.p==="poles")h=pagePoles();else if(view.p==="pole")h=pagePole(view.a);else if(view.p==="poll")h=pagePoll();else if(view.p==="biz")h=pageBiz();else if(view.p==="energy")h=pageEnergy();
+    var keep=document.activeElement&&document.activeElement.id==="q",pos=keep?document.activeElement.selectionStart:0;
+    v.innerHTML=h;
+    if(view.p==="home")startGlobe();else stopGlobe();
+    if(keep&&$("q")){$("q").focus();try{$("q").setSelectionRange(pos,pos)}catch(e){}}
+  }
+  renderNav();rendering=false;
+}
+function go(p,a,pre,noPush){
+  if(!noPush&&view.p!==p||(view.a!==a&&!noPush))stack.push(view);
+  if(TOP[p]&&!a&&!noPush&&["home","dir","poles","poll","form"].indexOf(view.p)>=0&&p!==view.p&&arguments.length>=4){}
+  view={p:p,a:a};if(pre)view.pre=pre;
+  window.scrollTo(0,0);render();
+}
+function back(){var v=stack.pop();view=v||{p:"home"};window.scrollTo(0,0);render()}
+
+/* ================= formulaire ================= */
+function renderLabels(){
+  var m={lFirst:"fFirst",lLast:"fLast",lPhone:"fPhone",lEmail:"fEmail",lCountry:"fCountry",lCity:"fCity",lDomain:"fDomain",lBiz:"fBiz",lSeek:"fSeek",lSkills:"fSkills",lRole:"fRole",lConsent:"consent"};
+  Object.keys(m).forEach(function(i){$(i).textContent=t(m[i])});
+  $("biz").placeholder=t("bizPh");$("seek").placeholder=t("seekPh");$("skills").placeholder=t("skPh");$("formBack").innerHTML=ic("left",16)+esc(t("back"));
+  var cs=$("country"),kc=cs.value||"FR";cs.innerHTML=CC.map(function(c){return '<option value="'+c+'">'+esc(cName(c))+'</option>'}).join("");cs.value=kc;
+  var ds=$("domain"),kd=ds.value||"services";ds.innerHTML=PK.map(function(k){return '<option value="'+k+'">'+esc(pName(k))+'</option>'}).join("");ds.value=kd;var rs=$("role"),kr=rs.value||"";rs.innerHTML=[["","rN"],["investor","rI"],["project","rP"],["both","rB"]].map(function(x){return '<option value="'+x[0]+'">'+esc(t(x[1]))+'</option>'}).join("");rs.value=kr;
+}
+function renderForm(){
+  var m=mine();
+  $("formTitle").textContent=m?t("editT"):t("newT");$("save").textContent=m?t("upd"):t("save");
+  $("del").textContent=armed===true?t("delSure"):t("del");$("del").hidden=!m;
+  var n=$("formNote");
+  if(mode==="local"){n.hidden=false;n.textContent=t("local")}else if(mode==="ro"){n.hidden=false;n.textContent=t("ro")}else n.hidden=true;
+  $("save").disabled=(mode==="ro");
+}
+function fillForm(pre){
+  var m=mine();
+  if(m){$("first").value=m.first||"";$("last").value=m.last||"";$("phone").value=m.phone||"";$("email").value=m.email||"";$("country").value=m.country||"FR";$("city").value=m.city||"";$("domain").value=m.domain||"services";$("role").value=m.role||"";$("biz").value=m.biz||"";$("seek").value=m.seek||"";$("skills").value=m.skills||"";$("consent").checked=true}
+  else if(pre)$("domain").value=pre;
+}
+async function saveProfile(e){
+  e.preventDefault();
+  var p={first:$("first").value.trim(),last:$("last").value.trim(),phone:$("phone").value.trim(),email:$("email").value.trim(),country:$("country").value,city:$("city").value.trim(),domain:$("domain").value,role:$("role").value,biz:$("biz").value.trim(),seek:$("seek").value.trim(),skills:$("skills").value.trim()};
+  if(!p.first||!p.last||!p.phone||!p.city){toast(t("req"));return}
+  if(!$("consent").checked){toast(t("consentReq"));return}
+  var old=mine();p.createdAt=old&&old.createdAt?old.createdAt:Date.now();p.updatedAt=Date.now();
+  try{
+    if(mode==="shared")await B.save(p);
+    else{p.id="me";profiles=profiles.filter(function(x){return x.id!=="me"});profiles.push(p);store("mre_profiles_v2",JSON.stringify(profiles))}
+    toast(t("saved"));stack=[];view={p:"dir"};window.scrollTo(0,0);render();
+  }catch(err){
+    if(err&&err.code==="invalid_argument"){mode="ro";renderForm();toast(t("ro"))}else toast(t("err"));
+  }
+}
+async function delProfile(){
+  if(armed!==true){armed=true;renderForm();setTimeout(function(){armed=false;if(view.p==="form")renderForm()},4000);return}
+  armed=false;
+  try{
+    if(mode==="shared")await B.del();
+    else{profiles=profiles.filter(function(x){return x.id!=="me"});store("mre_profiles_v2",JSON.stringify(profiles))}
+    ["first","last","phone","email","city","biz","seek","skills"].forEach(function(i){$(i).value=""});$("consent").checked=false;
+    toast(t("deleted"));stack=[];view={p:"dir"};render();
+  }catch(err){toast(t("err"))}
+}
+
+/* ================= sondage ================= */
+function myVote(){
+  if(mode==="shared"){var v=votes.filter(function(x){return x.id===uid})[0];return v?v.choice:null}
+  return store("mre_vote_v2")}
+async function castVote(k){
+  try{
+    if(mode==="shared"){await B.vote(k)}
+    else{store("mre_vote_v2",k);votes=[{id:"me",choice:k}];render()}
+  }catch(err){toast(err&&err.code==="invalid_argument"?t("ro"):t("err"))}
+}
+
+/* ================= langue ================= */
+function applyLang(){
+  document.documentElement.lang=LOC[lang]||lang;document.documentElement.dir=(lang==="ar")?"rtl":"ltr";$("logoSub").textContent=t("flagSub");
+  renderLabels();render();
+}
+function setLang(l){lang=l;store("mre_lang",l);$("lang").value=l;applyLang()}
+
+/* ================= événements ================= */
+document.addEventListener("click",function(e){
+  var el=e.target.closest("[data-nav],[data-go],[data-back],[data-d],[data-vote],[data-copy],[data-rm],[data-soon]");if(!el)return;if(el.dataset.soon){toast(t("cofSoon"));return}
+  if(el.dataset.nav){stack=[];view={p:el.dataset.nav};window.scrollTo(0,0);render();if(view.p==="form")fillForm();return}
+  if(el.dataset.go){var g=el.dataset.go;if(g==="dir"||g==="poles"||g==="poll"||g==="home"||g==="biz"){if(el.dataset.role!==undefined)fR=el.dataset.role;stack.push(view);view={p:g};render();window.scrollTo(0,0)}else if(g==="form"){stack.push(view);view={p:"form"};render();fillForm(el.dataset.pre);window.scrollTo(0,0)}else{stack.push(view);view={p:g,a:el.dataset.a};render();window.scrollTo(0,0)}return}
+  if(el.dataset.back){back();return}
+  if(el.dataset.d!==undefined){fD=el.dataset.d;render();return}
+  if(el.dataset.vote){castVote(el.dataset.vote);return}
+  if(el.dataset.copy){var v=el.dataset.copy;try{navigator.clipboard.writeText(v).then(function(){toast(t("copied"))},function(){toast(v)})}catch(x){toast(v)}return}
+  if(el.dataset.rm){var id=el.dataset.rm;if(armed!==id){armed=id;render();return}armed=false;B.rm(id).then(function(){back()},function(){toast(t("err"))})}
+});
+document.addEventListener("input",function(e){if(e.target.id==="q"){fQ=e.target.value;render()}});
+document.addEventListener("change",function(e){if(e.target.id==="fc"){fC=e.target.value;render()}if(e.target.id==="fr"){fR=e.target.value;render()}});
+$("lang").addEventListener("change",function(){setLang(this.value)});
+$("logo").onclick=function(){stack=[];view={p:"home"};window.scrollTo(0,0);render()};
+$("formBack").onclick=function(){back()};
+$("form").addEventListener("submit",saveProfile);$("del").onclick=delProfile;
+
+/* ================= connexion à la base partagée ================= */
+function localLoad(){var r=store("mre_profiles_v2");try{return r?JSON.parse(r):[]}catch(e){return []}}
+function rowOut(r){return {id:r.id,first:r.first_name,last:r.last_name,phone:r.phone,email:r.email||"",country:r.country,city:r.city,domain:r.domain,role:r.role||"",biz:r.biz||"",seek:r.seek||"",skills:r.skills||"",createdAt:r.created_at?Date.parse(r.created_at):0}}
+function rowIn(p,id){return {id:id,first_name:p.first,last_name:p.last,phone:p.phone,email:p.email,country:p.country,city:p.city,domain:p.domain,role:p.role||"",biz:p.biz,seek:p.seek,skills:p.skills,updated_at:new Date().toISOString()}}
+/* Supabase : annuaire commun (fichier HTML autonome) */
+async function connectSupabase(){
+  if(!SUPABASE_URL||!SUPABASE_KEY||!window.supabase||!window.supabase.createClient)return false;
+  try{
+    var sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+    var s=(await sb.auth.getSession()).data.session;
+    if(!s){var r=await sb.auth.signInAnonymously();if(r.error)throw r.error;s=r.data.session}
+    uid=s.user.id;
+    var reload=async function(){
+      var a=await sb.from("profiles").select("*").order("created_at",{ascending:false}).limit(2000);
+      if(!a.error)profiles=a.data.map(rowOut);
+      var b=await sb.from("votes").select("id,choice");
+      if(!b.error)votes=b.data;
+      if(view.p==="form")renderForm();else render();
+    };
+    B={save:async function(p){var r=await sb.from("profiles").upsert(rowIn(p,uid));if(r.error)throw r.error;await reload()},
+       del:async function(){var r=await sb.from("profiles").delete().eq("id",uid);if(r.error)throw r.error;await reload()},
+       vote:async function(k){var r=await sb.from("votes").upsert({id:uid,choice:k});if(r.error)throw r.error;await reload()},
+       rm:async function(){throw new Error("not allowed")}};
+    var first=await sb.from("profiles").select("id").limit(1);
+    if(first.error)throw first.error;
+    mineId=uid;mode="shared";profiles=[];votes=[];
+    await reload();
+    try{sb.channel("mre").on("postgres_changes",{event:"*",schema:"public",table:"profiles"},reload).on("postgres_changes",{event:"*",schema:"public",table:"votes"},reload).subscribe()}catch(e){}
+    setInterval(function(){if(!document.hidden&&view.p!=="form")reload()},60000);
+    return true;
+  }catch(e){return false}
+}
+/* Base partagée de l'artifact Claude (si la page est ouverte là-bas) */
+async function connectClaude(){
+  var c=window.claude;if(!c||!c.use)return;
+  try{
+    var d=await c.use("db"),u=await c.use("user");if(!d||!u)return;
+    var id=await u.id();if(!id)return;
+    db=d;uid=id;mineId=id;mode="shared";
+    B={save:function(p){return db.doc("profiles/"+uid).set(p)},del:function(){return db.doc("profiles/"+uid).delete()},vote:function(k){return db.doc("votes/"+uid).set({choice:k,at:Date.now()})},rm:function(i){return db.doc("profiles/"+i).delete()}};
+    try{isAdmin=!!(u.canEdit&&u.canEdit())}catch(e){}
+    try{if(u.can&&u.can("data.write")===false)mode="ro"}catch(e){}
+    profiles=[];votes=[];
+    db.collection("profiles").onSnapshot(function(s){profiles=s.docs.map(function(x){var o=Object.assign({},x.data());o.id=x.id;return o});if(view.p!=="form")render();else renderForm()},function(){mode="local";mineId="me";profiles=localLoad();render()});
+    db.collection("votes").onSnapshot(function(s){votes=s.docs.map(function(x){var o=Object.assign({},x.data());o.id=x.id;return o});if(view.p==="poll")render()},function(){});
+    render();
+  }catch(e){}
+}
+async function connect(){if(await connectSupabase())return;await connectClaude()}
+
+/* ================= démarrage ================= */
+$("lang").innerHTML=ORDER.map(function(k){return '<option value="'+k+'">'+L[k].flag+' '+esc(L[k].name)+'</option>'}).join("");
+var sv=store("mre_lang"),nav=(navigator.language||"fr").toLowerCase();
+lang=L[sv]?sv:(nav==="nl-be"?"nlbe":(L[nav.slice(0,2)]?nav.slice(0,2):"fr"));
+$("lang").value=lang;
+profiles=localLoad();var lv=store("mre_vote_v2");if(lv)votes=[{id:"me",choice:lv}];
+var hs=(location.hash||"").replace("#","");
+if(hs==="annuaire")view={p:"dir"};else if(hs==="poles")view={p:"poles"};else if(hs==="sondage")view={p:"poll"};else if(hs==="energies")view={p:"energy"};else if(hs==="inscription")view={p:"form"};else if(hs==="business")view={p:"biz"};
+applyLang();if(view.p==="form")fillForm();
+connect();
+})();
+</script>
