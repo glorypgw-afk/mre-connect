@@ -1,0 +1,5 @@
+Copyright (c) 2026 Monir Laghzaoui. Tous droits réservés. / All rights reserved.
+
+Ce code, le design, les textes, les noms (« Mo3owana », « MRE Connect ») et les logos
+sont la propriété exclusive de Monir Laghzaoui. Toute reproduction, copie, modification
+ou distribution, totale ou partielle, sans autorisation écrite préalable est interdite.
